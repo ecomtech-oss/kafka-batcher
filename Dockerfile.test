@@ -1,0 +1,16 @@
+FROM docker.samokat.io/platform/elixir/base-image:1.14.3.1-release
+
+ARG MIX_ENV=test
+ARG project_dir
+
+WORKDIR ${project_dir}
+COPY . .
+
+# Install mix packages
+RUN mix local.hex --force && \
+    mix local.rebar --force
+
+RUN HEX_HTTP_CONCURRENCY=3 HEX_HTTP_TIMEOUT=240 mix deps.get && mix deps.compile && mix compile
+RUN mix format --check-formatted
+RUN mix dialyzer --ignore-exit-status
+RUN mix test.coverage
