@@ -4,7 +4,7 @@ defmodule KafkaBatcher.MixProject do
   def project do
     [
       app: :kafka_batcher,
-      version: "1.0.0",
+      version: "1.0.1",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: Mix.compilers(),
