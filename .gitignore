@@ -20,7 +20,7 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-kafka-*.tar
+kafka*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
@@ -30,3 +30,4 @@ kafka-*.tar
 .idea/
 .DS_Store
 *.iml
+.elixir_ls

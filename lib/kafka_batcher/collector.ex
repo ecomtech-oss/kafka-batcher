@@ -110,11 +110,12 @@ defmodule KafkaBatcher.Collector do
       def handle_call({:add_events, events}, from, %State{locked?: true} = state) when is_list(events) do
         # If the temporal storage is empty - then Kafka is available, so we can unlock state and process handling.
         # In another case we don't want accumulate more messages in the memory, so we return an error to the caller.
-        if TempStorage.empty?(state.topic_name, state.last_check_timestamp) do
-          handle_call({:add_events, events}, from, %State{state | locked?: false})
-        else
-          now = System.os_time(:millisecond)
-          {:reply, {:error, :kafka_unavailible}, %State{state | last_check_timestamp: now}}
+        case TempStorage.check_storage(state) do
+          %State{locked?: false} = new_state ->
+            handle_call({:add_events, events}, from, new_state)
+
+          new_state ->
+            {:reply, {:error, :kafka_unavailible}, new_state}
         end
       end
 

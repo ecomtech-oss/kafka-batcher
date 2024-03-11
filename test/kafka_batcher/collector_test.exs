@@ -260,7 +260,7 @@ defmodule Producers.CollectorTest do
     {^messages, ^topic8, _call_partition, ^topic8_config} = parameters
   end
 
-  test "produce simple collector by max wait with producing failed " do
+  test "produce simple collector by max wait with producing failed" do
     topic8_config = KafkaBatcher.Test.SimpleCollectorMaxWaitTime.get_config()
     topic8 = TestProducer.topic_name(8)
     max_wait_time = Keyword.fetch!(topic8_config, :max_wait_time)

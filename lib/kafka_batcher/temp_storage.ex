@@ -3,6 +3,8 @@ defmodule KafkaBatcher.TempStorage do
   Implements wrap-functions that are called to save batches when Kafka is unavailable.
   """
 
+  alias KafkaBatcher.Collector.State, as: CollectorState
+
   @storage_impl Application.compile_env(:kafka_batcher, :storage_impl, KafkaBatcher.TempStorage.Default)
   @recheck_kafka_availability_interval Application.compile_env(
                                          :kafka_batcher,
@@ -11,18 +13,28 @@ defmodule KafkaBatcher.TempStorage do
                                        )
 
   @spec save_batch(KafkaBatcher.TempStorage.Batch.t()) :: :ok
-  def save_batch(batch) do
-    @storage_impl.save_batch(batch)
-  end
+  def save_batch(batch), do: @storage_impl.save_batch(batch)
 
-  @spec empty?(binary(), integer()) :: boolean()
-  def empty?(topic, last_check_timestamp) do
+  @spec check_storage(%CollectorState{}) :: %CollectorState{}
+  def check_storage(%CollectorState{last_check_timestamp: last_check_timestamp} = state) do
     now = System.os_time(:millisecond)
 
-    if is_nil(last_check_timestamp) || last_check_timestamp + @recheck_kafka_availability_interval < now do
-      @storage_impl.empty?(topic)
+    if should_recheck?(last_check_timestamp, now) do
+      recheck_and_update(state, now)
     else
-      false
+      state
     end
+  end
+
+  defp recheck_and_update(%CollectorState{topic_name: topic, locked?: true} = state, now) do
+    if @storage_impl.empty?(topic) do
+      %CollectorState{state | locked?: false, last_check_timestamp: nil}
+    else
+      %CollectorState{state | last_check_timestamp: now}
+    end
+  end
+
+  defp should_recheck?(last_check_timestamp, now) do
+    is_nil(last_check_timestamp) || last_check_timestamp + @recheck_kafka_availability_interval < now
   end
 end
