@@ -7,27 +7,21 @@ defmodule KafkaBatcher.Collector.Implementation do
   alias KafkaBatcher.{AccumulatorsPoolSupervisor, MessageObject, Collector.State}
   @producer Application.compile_env(:kafka_batcher, :producer_module, KafkaBatcher.Producers.Kaffe)
 
-  def calculate_partition(%MessageObject{key: key, value: value}, topic_name, config) do
+  def choose_partition(_message, _topic_name, _config, nil), do: {:error, :kafka_unavailable}
+
+  def choose_partition(%MessageObject{key: key, value: value}, topic_name, config, partitions_count) do
     calc_partition_fn = Keyword.fetch!(config, :partition_fn)
 
-    case @producer.get_partitions_count(topic_name) do
-      {:ok, partitions_count} ->
-        partition = calc_partition_fn.(topic_name, partitions_count, key, value)
-        {:ok, partition}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+    partition = calc_partition_fn.(topic_name, partitions_count, key, value)
+    {:ok, partition}
   end
 
-  def start_accumulators(%State{topic_name: topic_name, collect_by_partition: true} = state) do
-    case @producer.get_partitions_count(topic_name) do
-      {:ok, count} ->
-        start_accumulators_by_partitions(count, state)
+  def start_accumulators(%State{collect_by_partition: true, partitions_count: nil}) do
+    {:error, :kafka_unavailable}
+  end
 
-      {:error, reason} ->
-        {:error, reason}
-    end
+  def start_accumulators(%State{collect_by_partition: true, partitions_count: count} = state) do
+    start_accumulators_by_partitions(count, state)
   end
 
   def start_accumulators(%State{topic_name: topic_name, config: config, collect_by_partition: false} = state) do
@@ -67,4 +61,17 @@ defmodule KafkaBatcher.Collector.Implementation do
         {:error, reason}
     end
   end
+
+  @spec store_partition_count(%State{}) :: %State{}
+  def store_partitions_count(%State{partitions_count: nil} = state) do
+    case @producer.get_partitions_count(state.topic_name) do
+      {:ok, partitions_count} ->
+        %State{state | partitions_count: partitions_count}
+
+      {:error, _reason} ->
+        state
+    end
+  end
+
+  def store_partition_count(%State{partitions_count: count} = state) when is_integer(count), do: state
 end

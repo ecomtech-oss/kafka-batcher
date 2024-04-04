@@ -42,6 +42,10 @@ defmodule KafkaBatcher.MoxHelper do
 
         if mode == :off do
           flush(action)
+
+          client().get_state()
+          |> put_in([:responses, action], nil)
+          |> client().set_state()
         end
       end
 

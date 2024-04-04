@@ -282,6 +282,7 @@ defmodule Producers.CollectorTest do
 
     TestProducer.set_response(:do_produce, :ok)
 
+    assert_received(%{action: :get_partitions_count, parameters: ^topic8})
     assert_received(%{action: :empty?, parameters: ^topic8})
 
     assert_receive(%{action: :do_produce, parameters: parameters})
@@ -414,12 +415,10 @@ defmodule Producers.CollectorTest do
     expect_messages = [message1]
 
     KafkaBatcher.Test.StartAccumulatorFail.add_events([message1, message1])
-    assert_receive(%{action: :get_partitions_count, parameters: ^topic_name}, 200)
     assert_receive(%{action: :do_produce, parameters: parameters}, 200)
     {^expect_messages, ^topic_name, _call_partition, _config} = parameters
 
     ## After timeout
-    assert_receive(%{action: :get_partitions_count, parameters: ^topic_name}, 200)
     assert_receive(%{action: :do_produce, parameters: parameters}, 200)
     {^expect_messages, ^topic_name, _call_partition, _config} = parameters
   end

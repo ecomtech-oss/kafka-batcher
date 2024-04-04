@@ -139,15 +139,17 @@ defmodule KafkaBatcher.Collector do
 
       @impl GenServer
       def handle_info(:init_accumulators, state) do
-        case start_accumulators(state) do
+        new_state = store_partitions_count(state)
+
+        case start_accumulators(new_state) do
           :ok ->
             Logger.debug("KafkaBatcher: Started accumulators for topic #{__MODULE__}")
-            {:noreply, %State{state | ready?: true}}
+            {:noreply, %State{new_state | ready?: true}}
 
           {:error, reason} ->
             Logger.info("KafkaBatcher: Failed to start accumulators. Topic #{__MODULE__}. Reason #{inspect(reason)}")
-            ref = restart_timer(state)
-            {:noreply, %State{state | timer_ref: ref, ready?: false}}
+            ref = restart_timer(new_state)
+            {:noreply, %State{new_state | timer_ref: ref, ready?: false}}
         end
       end
 

@@ -3,7 +3,7 @@ defmodule KafkaBatcher.Collector.State do
   Describes the state of KafkaBatcher.Collector and functions working with it
   """
 
-  alias KafkaBatcher.{Accumulator, Collector.State, Collector.Utils}
+  alias KafkaBatcher.{Accumulator, Collector.State, Collector.Utils, TempStorage}
 
   defstruct topic_name: nil,
             config: [],
@@ -14,7 +14,8 @@ defmodule KafkaBatcher.Collector.State do
             last_check_timestamp: nil,
             # these fields are used to handle case when Kafka is not available at the start
             ready?: false,
-            timer_ref: nil
+            timer_ref: nil,
+            partitions_count: nil
 
   def add_events(state, events) do
     reply =
@@ -28,12 +29,13 @@ defmodule KafkaBatcher.Collector.State do
     apply_add_event_reply(state, reply)
   end
 
-  defp add_event(event, %State{collect_by_partition: true, config: config, topic_name: topic_name}) do
-    case KafkaBatcher.Collector.Implementation.calculate_partition(event, topic_name, config) do
+  defp add_event(event, %State{collect_by_partition: true, config: config, topic_name: topic_name, partitions_count: count}) do
+    case KafkaBatcher.Collector.Implementation.choose_partition(event, topic_name, config, count) do
       {:ok, partition} ->
         Accumulator.add_event(event, topic_name, partition)
 
       error ->
+        save_messages_to_temp_storage([event], topic_name, config)
         error
     end
   end
@@ -48,5 +50,14 @@ defmodule KafkaBatcher.Collector.State do
 
   defp apply_add_event_reply(state, {:error, reason}) do
     {:error, reason, %State{state | locked?: true}}
+  end
+
+  defp save_messages_to_temp_storage(messages, topic_name, config) do
+    TempStorage.save_batch(%TempStorage.Batch{
+      messages: messages,
+      topic: topic_name,
+      partition: nil,
+      producer_config: config
+    })
   end
 end

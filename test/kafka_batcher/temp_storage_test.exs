@@ -28,7 +28,9 @@ defmodule KafkaBatcher.TempStorageTest do
     # wait a bit, but less than @recheck_kafka_availability_interval
     Process.sleep(2)
     assert TempStorage.check_storage(locked_state) === locked_state
-    refute_received %{action: :empty?, parameters: ^topic}, "Should be called only once during @recheck_kafka_availability_interval"
+
+    refute_received %{action: :empty?, parameters: ^topic},
+                    "Should be called only once during @recheck_kafka_availability_interval"
 
     # let's pretend that we checked stogare more than @recheck_kafka_availability_interval ms ago
     old_state = Map.put(locked_state, :last_check_timestamp, now - @recheck_kafka_availability_interval)
@@ -36,7 +38,9 @@ defmodule KafkaBatcher.TempStorageTest do
 
     assert new_state !== old_state, "last_check_timestamp should be updated"
     assert Map.delete(new_state, :last_check_timestamp) === Map.delete(old_state, :last_check_timestamp)
-    assert_received %{action: :empty?, parameters: ^topic}, "Should be called because passed more time than recheck_kafka_availability_interval"
+
+    assert_received %{action: :empty?, parameters: ^topic},
+                    "Should be called because passed more time than recheck_kafka_availability_interval"
 
     TestStorage.set_response(:empty?, true)
     TestStorage.set_notification_mode(:empty?, :off)
