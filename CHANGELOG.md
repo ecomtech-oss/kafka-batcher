@@ -5,6 +5,10 @@ Please refer to https://keepachangelog.com/en/1.0.0/ for format.
 
 ## [Unreleased]
 
+## [1.0.2] - 2024-05-08
+### Bugfixes
+- Cache partitions count in the collector state
+
 ## [1.0.1] - 2024-03-11
 ### Bugfixes
 - Update last_check_timestamp only in case we really check the temporary storage
