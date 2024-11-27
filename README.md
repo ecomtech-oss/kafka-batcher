@@ -75,7 +75,7 @@ Available parameters:
 * `:telemetry`, if set to `true`, metrics will be collected and exposed with PromEx.
 * `:allow_topic_auto_creation`, if set true, topics automatically are created with default parameters.
 * `:partition_strategy`, allows values: :random, :md5 or function (e.g. `fn _topic, _partitions_count, key, _value -> key end`)
-* `:partition_fn`, a function that takes four arguments and returns a number of topic (see below)
+* `:partition_fn`, a function that takes four arguments and returns a number of the partition (see below)
 * `:collect_by_partition`, if set to `true`, producer accumulates messages separately for each partition of the topic
 * `:batch_size`, count of messages to be accumulated by collector before producing
 * `:max_wait_time`, max interval between batches in milliseconds. The batch will be produced to Kafka either by `batch_size` or by `max_wait_time` parameter.
