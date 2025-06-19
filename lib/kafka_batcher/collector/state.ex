@@ -51,6 +51,10 @@ defmodule KafkaBatcher.Collector.State do
         save_messages_to_temp_storage([event], topic_name, config)
         error
     end
+  catch
+    _, reason ->
+      save_messages_to_temp_storage([event], topic_name, config)
+      {:error, reason}
   end
 
   defp add_event(event, %State{collect_by_partition: false} = state) do
