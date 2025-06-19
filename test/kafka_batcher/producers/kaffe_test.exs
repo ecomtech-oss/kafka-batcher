@@ -30,7 +30,16 @@ defmodule Producers.KaffeTest do
                        end
                      )
 
+  setup :backup_kafka_batcher_env
   setup :prepare_config
+
+  def backup_kafka_batcher_env(_) do
+    config = Application.get_env(:kafka_batcher, :kafka)
+
+    on_exit(fn ->
+      Application.put_env(:kafka_batcher, :kafka, config)
+    end)
+  end
 
   def prepare_config(%{test: :"test start client with SASL_SSL"} = _context) do
     config =
