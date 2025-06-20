@@ -4,14 +4,20 @@ defmodule KafkaBatcher.Collector.Utils do
   """
   alias KafkaBatcher.MessageObject
 
-  @spec prepare_events(list(any())) :: list(MessageObject.t())
+  @type event ::
+          binary()
+          | {binary(), binary()}
+          | {list(), binary(), binary()}
+          | map()
+          | MessageObject.t()
+
+  @spec prepare_events([event()]) :: [MessageObject.t()]
   def prepare_events(events) do
     List.wrap(events)
     |> Enum.map(&transform_event/1)
   end
 
-  @spec transform_event(binary() | {binary(), binary()} | {list(), binary(), binary()} | map() | MessageObject.t()) ::
-          MessageObject.t()
+  @spec transform_event(event()) :: MessageObject.t()
   def transform_event(%MessageObject{} = event) do
     event
   end
