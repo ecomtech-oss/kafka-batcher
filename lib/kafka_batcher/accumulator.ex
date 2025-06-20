@@ -5,10 +5,11 @@ defmodule KafkaBatcher.Accumulator do
   See details how it works in KafkaBatcher.Accumulator.State module
   """
 
-  require Logger
-
   alias KafkaBatcher.{Accumulator.State, MessageObject, TempStorage}
   alias KafkaBatcher.Behaviours.Collector, as: CollectorBehaviour
+  alias KafkaBatcher.Behaviours.Accumulator, as: AccumulatorBehaviour
+
+  @behaviour AccumulatorBehaviour
 
   @error_notifier Application.compile_env(:kafka_batcher, :error_notifier, KafkaBatcher.DefaultErrorNotifier)
   @producer Application.compile_env(:kafka_batcher, :producer_module, KafkaBatcher.Producers.Kaffe)
@@ -16,11 +17,13 @@ defmodule KafkaBatcher.Accumulator do
   use GenServer
   require Logger
 
+  @impl AccumulatorBehaviour
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: reg_name(args))
   end
 
   @doc "Returns a specification to start this module under a supervisor"
+  @impl AccumulatorBehaviour
   def child_spec(args) do
     %{
       id: reg_name(args),
@@ -31,6 +34,7 @@ defmodule KafkaBatcher.Accumulator do
   @doc """
   Finds appropriate Accumulator process by topic & partition and dispatches `event` to it
   """
+  @impl AccumulatorBehaviour
   def add_event(%MessageObject{} = event, topic_name, partition \\ nil) do
     GenServer.call(reg_name(topic_name: topic_name, partition: partition), {:add_event, event})
   end
