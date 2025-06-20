@@ -71,12 +71,11 @@ defmodule Producers.CollectorTest do
     }
   ]
 
-  setup_all do
-    prepare_producers()
-  end
-
   setup do
+    stub_with(KafkaBatcher.AccumulatorMock, KafkaBatcher.Accumulator)
+    prepare_producers()
     prepare_mocks()
+    on_exit(fn -> Supervisor.stop(KafkaBatcher.Supervisor) end)
   end
 
   def prepare_mocks do
@@ -422,6 +421,44 @@ defmodule Producers.CollectorTest do
     ## After timeout
     assert_receive(%{action: :do_produce, parameters: parameters}, 200)
     {^expect_messages, ^topic_name, _call_partition, _config} = parameters
+  end
+
+  test "produce simple collector with accumulator timeout" do
+    topic2_config = KafkaBatcher.Test.SimpleCollector.get_config()
+    topic2 = TestProducer.topic_name(2)
+    batch_size = Keyword.fetch!(topic2_config, :batch_size)
+
+    events = generate_events(@template_events, batch_size)
+
+    KafkaBatcher.AccumulatorMock
+    |> expect(:add_event, 1, fn _, _, _ ->
+      :timer.sleep(2000)
+      throw(:timeout)
+    end)
+
+    assert {:error, :accumulator_unavailable} =
+             events
+             |> Enum.map(fn event -> {"", event} end)
+             |> KafkaBatcher.Test.SimpleCollector.add_events()
+
+    assert_receive(%{action: :save_batch, parameters: retry_data})
+
+    %Batch{
+      messages: retry_messages,
+      topic: retry_topic,
+      partition: retry_partition,
+      producer_config: retry_config
+    } = retry_data
+
+    assert retry_topic === topic2
+    assert retry_config === topic2_config
+    assert retry_partition === nil
+
+    assert retry_messages ===
+             Enum.map(
+               events,
+               fn event -> %MessageObject{key: "", value: event} end
+             )
   end
 
   ## INTERNAL FUNCTIONS

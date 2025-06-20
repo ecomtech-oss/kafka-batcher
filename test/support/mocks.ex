@@ -1,6 +1,7 @@
 Mox.defmock(KafkaBatcher.BrodMock, for: Test.Support.Behaviours.Brod)
 Mox.defmock(KafkaBatcher.KafkaExMock, for: Test.Support.Behaviours.KafkaEx)
 Mox.defmock(KafkaBatcher.KafkaEx.MetadataMock, for: Test.Support.Behaviours.KafkaEx.Metadata)
+Mox.defmock(KafkaBatcher.AccumulatorMock, for: KafkaBatcher.Behaviours.Accumulator)
 
 defmodule KafkaBatcher.Mocks do
   @moduledoc false

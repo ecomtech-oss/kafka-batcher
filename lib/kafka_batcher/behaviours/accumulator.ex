@@ -12,6 +12,6 @@ defmodule KafkaBatcher.Behaviours.Accumulator do
 
   @callback start_link(Keyword.t()) :: GenServer.on_start()
   @callback child_spec(Keyword.t()) :: Supervisor.child_spec()
-  @callback add_event(MessageObject.t(), topic_name()) :: term()
-  @callback add_event(MessageObject.t(), topic_name(), partition()) :: term()
+  @callback add_event(MessageObject.t(), topic_name()) :: :ok | {:error, term()}
+  @callback add_event(MessageObject.t(), topic_name(), partition()) :: :ok | {:error, term()}
 end
