@@ -5,6 +5,18 @@ defmodule KafkaBatcher.Collector.State do
 
   alias KafkaBatcher.{Accumulator, Collector.State, Collector.Utils, TempStorage}
 
+  @type t :: %State{
+          topic_name: String.t() | nil,
+          config: Keyword.t(),
+          collect_by_partition: boolean(),
+          collector: atom() | nil,
+          locked?: boolean(),
+          last_check_timestamp: non_neg_integer() | nil,
+          ready?: boolean(),
+          timer_ref: :timer.tref() | nil,
+          partitions_count: pos_integer() | nil
+        }
+
   defstruct topic_name: nil,
             config: [],
             collect_by_partition: true,

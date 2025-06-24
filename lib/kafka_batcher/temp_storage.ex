@@ -15,7 +15,7 @@ defmodule KafkaBatcher.TempStorage do
   @spec save_batch(KafkaBatcher.TempStorage.Batch.t()) :: :ok
   def save_batch(batch), do: @storage_impl.save_batch(batch)
 
-  @spec check_storage(%CollectorState{}) :: %CollectorState{}
+  @spec check_storage(CollectorState.t()) :: CollectorState.t()
   def check_storage(%CollectorState{last_check_timestamp: last_check_timestamp} = state) do
     now = System.os_time(:millisecond)
 

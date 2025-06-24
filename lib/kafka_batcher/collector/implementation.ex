@@ -62,7 +62,7 @@ defmodule KafkaBatcher.Collector.Implementation do
     end
   end
 
-  @spec store_partition_count(%State{}) :: %State{}
+  @spec store_partition_count(State.t()) :: State.t()
   def store_partitions_count(%State{partitions_count: nil} = state) do
     case @producer.get_partitions_count(state.topic_name) do
       {:ok, partitions_count} ->
