@@ -103,7 +103,7 @@ defmodule KafkaBatcher.Collector do
 
       @impl GenServer
       def handle_call({:add_events, events}, _from, %State{ready?: false} = state) when is_list(events) do
-        {:reply, {:error, :kafka_unavailible}, state}
+        {:reply, {:error, :kafka_unavailable}, state}
       end
 
       @impl GenServer
@@ -115,7 +115,7 @@ defmodule KafkaBatcher.Collector do
             handle_call({:add_events, events}, from, new_state)
 
           new_state ->
-            {:reply, {:error, :kafka_unavailible}, new_state}
+            {:reply, {:error, :kafka_unavailable}, new_state}
         end
       end
 
