@@ -140,7 +140,7 @@ defmodule KafkaBatcher.Accumulator.State do
   end
 
   defp stop_timer(%__MODULE__{cleanup_timer_ref: cleanup_timer_ref} = state) when is_reference(cleanup_timer_ref) do
-    :erlang.cancel_timer(cleanup_timer_ref)
+    _ = :erlang.cancel_timer(cleanup_timer_ref)
     ## If the timer has expired before its cancellation, we must empty the
     ## mail-box of the 'timeout'-message.
     receive do

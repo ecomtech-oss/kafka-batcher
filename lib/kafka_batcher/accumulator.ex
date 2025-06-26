@@ -113,7 +113,7 @@ defmodule KafkaBatcher.Accumulator do
   end
 
   defp cleanup(%{pending_messages: pending_messages, messages_to_produce: messages_to_produce} = state) do
-    handle_produce(Enum.reverse(pending_messages ++ messages_to_produce), state)
+    _ = handle_produce(Enum.reverse(pending_messages ++ messages_to_produce), state)
     Logger.info("KafkaBatcher: Terminating #{__MODULE__}")
   end
 
