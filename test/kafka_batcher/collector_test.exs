@@ -3,9 +3,10 @@ defmodule Producers.CollectorTest do
   use KafkaBatcher.Mocks
 
   alias KafkaBatcher.MessageObject
-  alias KafkaBatcher.TempStorage.Batch
   alias KafkaBatcher.Producers.TestProducer
+  alias KafkaBatcher.TempStorage.Batch
   alias KafkaBatcher.TempStorage.TestStorage
+  alias KafkaBatcher.Test
 
   @template_events [
     %{
@@ -78,7 +79,7 @@ defmodule Producers.CollectorTest do
     prepare_mocks()
   end
 
-  def prepare_mocks() do
+  def prepare_mocks do
     TestProducer.set_owner()
     TestProducer.set_notification_mode(:do_produce, :on)
     TestProducer.set_notification_mode(:get_partitions_count, :on)
@@ -96,13 +97,13 @@ defmodule Producers.CollectorTest do
     end)
   end
 
-  def prepare_producers() do
+  def prepare_producers do
     KafkaBatcher.ProducerHelper.connection_manager_up()
     :ok
   end
 
   test "produce by_partitions, calculate partition by value" do
-    topic1_config = KafkaBatcher.Test.CalculatePartitionByValueCollector.get_config()
+    topic1_config = Test.CalculatePartitionByValueCollector.get_config()
     topic1 = TestProducer.topic_name(1)
 
     sup_name = :"Elixir.KafkaBatcher.AccumulatorsPoolSupervisor.#{topic1}"
@@ -115,7 +116,7 @@ defmodule Producers.CollectorTest do
       end)
 
     Supervisor.which_children(pool_sup)
-    |> Enum.all?(fn {_, _, _, [module]} -> module == KafkaBatcher.Test.CalculatePartitionByValueCollector end)
+    |> Enum.all?(fn {_, _, _, [module]} -> module == Test.CalculatePartitionByValueCollector end)
 
     grouped_events =
       Enum.group_by(
@@ -139,7 +140,7 @@ defmodule Producers.CollectorTest do
       end
     )
     |> List.flatten()
-    |> KafkaBatcher.Test.CalculatePartitionByValueCollector.add_events()
+    |> Test.CalculatePartitionByValueCollector.add_events()
 
     Enum.each(
       grouped_messages,
@@ -151,7 +152,7 @@ defmodule Producers.CollectorTest do
   end
 
   test "produce by_partitions, calculate partition by key" do
-    topic4_config = KafkaBatcher.Test.CalculatePartitionByKeyCollector.get_config()
+    topic4_config = Test.CalculatePartitionByKeyCollector.get_config()
     topic4 = TestProducer.topic_name(4)
 
     grouped_events =
@@ -176,7 +177,7 @@ defmodule Producers.CollectorTest do
       end
     )
     |> List.flatten()
-    |> KafkaBatcher.Test.CalculatePartitionByKeyCollector.add_events()
+    |> Test.CalculatePartitionByKeyCollector.add_events()
 
     Enum.each(
       grouped_messages,
@@ -188,7 +189,7 @@ defmodule Producers.CollectorTest do
   end
 
   test "produce simple collector" do
-    topic2_config = KafkaBatcher.Test.SimpleCollector.get_config()
+    topic2_config = Test.SimpleCollector.get_config()
     topic2 = TestProducer.topic_name(2)
     batch_size = Keyword.fetch!(topic2_config, :batch_size)
 
@@ -196,14 +197,14 @@ defmodule Producers.CollectorTest do
     messages = Enum.map(events, fn event -> %MessageObject{key: "", value: Jason.encode!(event)} end)
 
     Enum.map(events, fn event -> {"", event} end)
-    |> KafkaBatcher.Test.SimpleCollector.add_events()
+    |> Test.SimpleCollector.add_events()
 
     assert_receive(%{action: :do_produce, parameters: parameters})
     {^messages, ^topic2, _call_partition, ^topic2_config} = parameters
   end
 
   test "produce simple collector with error" do
-    topic2_config = KafkaBatcher.Test.SimpleCollector.get_config()
+    topic2_config = Test.SimpleCollector.get_config()
     topic2 = TestProducer.topic_name(2)
     batch_size = Keyword.fetch!(topic2_config, :batch_size)
 
@@ -213,7 +214,7 @@ defmodule Producers.CollectorTest do
     TestProducer.set_response(:do_produce, {:error, :usual_error})
 
     Enum.map(events, fn event -> {"", event} end)
-    |> KafkaBatcher.Test.SimpleCollector.add_events()
+    |> Test.SimpleCollector.add_events()
 
     assert_receive(%{action: :do_produce, parameters: parameters})
     {^source_messages, ^topic2, _call_partition, ^topic2_config} = parameters
@@ -237,7 +238,7 @@ defmodule Producers.CollectorTest do
     Process.sleep(interval + 1)
 
     Enum.map(events, fn event -> {"", event} end)
-    |> KafkaBatcher.Test.SimpleCollector.add_events()
+    |> Test.SimpleCollector.add_events()
 
     assert_receive(%{action: :do_produce, parameters: _parameters})
     assert_received(%{action: :save_batch})
@@ -246,7 +247,7 @@ defmodule Producers.CollectorTest do
   end
 
   test "produce simple collector by max wait" do
-    topic8_config = KafkaBatcher.Test.SimpleCollectorMaxWaitTime.get_config()
+    topic8_config = Test.SimpleCollectorMaxWaitTime.get_config()
     topic8 = TestProducer.topic_name(8)
     max_wait_time = Keyword.fetch!(topic8_config, :max_wait_time)
 
@@ -254,14 +255,14 @@ defmodule Producers.CollectorTest do
     messages = Enum.map(events, fn event -> %MessageObject{key: "", value: Jason.encode!(event)} end)
 
     Enum.map(events, fn event -> {"", event} end)
-    |> KafkaBatcher.Test.SimpleCollectorMaxWaitTime.add_events()
+    |> Test.SimpleCollectorMaxWaitTime.add_events()
 
     assert_receive(%{action: :do_produce, parameters: parameters}, max_wait_time + 100)
     {^messages, ^topic8, _call_partition, ^topic8_config} = parameters
   end
 
   test "produce simple collector by max wait with producing failed" do
-    topic8_config = KafkaBatcher.Test.SimpleCollectorMaxWaitTime.get_config()
+    topic8_config = Test.SimpleCollectorMaxWaitTime.get_config()
     topic8 = TestProducer.topic_name(8)
     max_wait_time = Keyword.fetch!(topic8_config, :max_wait_time)
 
@@ -271,14 +272,14 @@ defmodule Producers.CollectorTest do
     TestProducer.set_response(:empty?, false)
 
     Enum.map(events, fn event -> {"", event} end)
-    |> KafkaBatcher.Test.SimpleCollectorMaxWaitTime.add_events()
+    |> Test.SimpleCollectorMaxWaitTime.add_events()
 
     assert_receive(%{action: :do_produce, parameters: _parameters})
 
     Process.sleep(2 * max_wait_time)
 
     Enum.map(events, fn event -> {"", event} end)
-    |> KafkaBatcher.Test.SimpleCollectorMaxWaitTime.add_events()
+    |> Test.SimpleCollectorMaxWaitTime.add_events()
 
     TestProducer.set_response(:do_produce, :ok)
 
@@ -290,7 +291,7 @@ defmodule Producers.CollectorTest do
   end
 
   test "produce simple collector with delay" do
-    topic6_config = KafkaBatcher.Test.SimpleCollectorWithDelay.get_config()
+    topic6_config = Test.SimpleCollectorWithDelay.get_config()
     topic6 = TestProducer.topic_name(6)
     batch_size = Keyword.fetch!(topic6_config, :batch_size)
 
@@ -300,22 +301,22 @@ defmodule Producers.CollectorTest do
     delay = Keyword.get(topic6_config, :min_delay)
 
     Enum.map(events, fn event -> {"", event} end)
-    |> KafkaBatcher.Test.SimpleCollectorWithDelay.add_events()
+    |> Test.SimpleCollectorWithDelay.add_events()
 
     assert_receive(%{action: :do_produce, parameters: parameters})
     {^messages, ^topic6, _call_partition, ^topic6_config} = parameters
 
     Enum.map(events, fn event -> {"", event} end)
-    |> KafkaBatcher.Test.SimpleCollectorWithDelay.add_events()
+    |> Test.SimpleCollectorWithDelay.add_events()
 
     refute_receive(%{action: :do_produce}, delay, "second call should be delayed")
 
-    KafkaBatcher.Test.SimpleCollectorWithDelay.add_events([hd(messages)])
+    Test.SimpleCollectorWithDelay.add_events([hd(messages)])
     assert_receive(%{action: :do_produce})
   end
 
   test "produce simple collector with max byte size control" do
-    topic7_config = KafkaBatcher.Test.SimpleCollectorMaxByteSizeControl.get_config()
+    topic7_config = Test.SimpleCollectorMaxByteSizeControl.get_config()
     topic7 = TestProducer.topic_name(7)
     batch_size = Keyword.fetch!(topic7_config, :batch_size)
 
@@ -336,7 +337,7 @@ defmodule Producers.CollectorTest do
         end
       end)
 
-    KafkaBatcher.Test.SimpleCollectorMaxByteSizeControl.add_events(events)
+    Test.SimpleCollectorMaxByteSizeControl.add_events(events)
 
     Enum.each(
       1..cnt_msg,
@@ -362,7 +363,7 @@ defmodule Producers.CollectorTest do
       "type" => "Flush Type"
     }
 
-    topic3_config = KafkaBatcher.Test.BatchFlushCollector.get_config()
+    topic3_config = Test.BatchFlushCollector.get_config()
     topic3 = TestProducer.topic_name(3)
 
     expect_messages = [
@@ -372,7 +373,7 @@ defmodule Producers.CollectorTest do
 
     events = [event1, event2]
 
-    Enum.each(events, fn event -> KafkaBatcher.Test.BatchFlushCollector.add_events([{"", event}]) end)
+    Enum.each(events, fn event -> Test.BatchFlushCollector.add_events([{"", event}]) end)
 
     assert_receive(%{action: :do_produce, parameters: parameters})
     {^expect_messages, ^topic3, _call_partition, ^topic3_config} = parameters
@@ -398,7 +399,7 @@ defmodule Producers.CollectorTest do
     TestProducer.set_notification_mode(:get_partitions_count, :on)
     TestProducer.set_notification_mode(:do_produce, :on)
 
-    {:ok, _pid} = KafkaBatcher.Test.StartAccumulatorFail.start_link(opts)
+    {:ok, _pid} = Test.StartAccumulatorFail.start_link(opts)
 
     assert_receive(%{action: :get_partitions_count, parameters: ^topic_name}, 200)
     TestProducer.set_response(:get_partitions_count, {:ok, 1})
@@ -414,7 +415,7 @@ defmodule Producers.CollectorTest do
     ## :erlang.external_size(new_message) = 142 byte
     expect_messages = [message1]
 
-    KafkaBatcher.Test.StartAccumulatorFail.add_events([message1, message1])
+    Test.StartAccumulatorFail.add_events([message1, message1])
     assert_receive(%{action: :do_produce, parameters: parameters}, 200)
     {^expect_messages, ^topic_name, _call_partition, _config} = parameters
 
@@ -429,7 +430,7 @@ defmodule Producers.CollectorTest do
     calc_fn.(topic_name, partitions_count, key, event)
   end
 
-  defp transform_messages() do
+  defp transform_messages do
     fn {partition, events} ->
       {partition,
        Enum.map(events, fn {key, event} ->

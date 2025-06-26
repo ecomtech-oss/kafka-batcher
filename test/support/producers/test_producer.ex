@@ -27,7 +27,7 @@ defmodule KafkaBatcher.Producers.TestProducer do
   }
 
   @impl true
-  def start_client() do
+  def start_client do
     process_callback(%{action: :start_client}, {:ok, self()})
   end
 

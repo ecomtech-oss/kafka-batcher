@@ -19,7 +19,7 @@ defmodule KafkaBatcher.MoxHelper do
 
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts] do
-      defp client() do
+      defp client do
         Keyword.fetch!(unquote(Macro.escape(opts)), :client)
       end
 
@@ -29,7 +29,7 @@ defmodule KafkaBatcher.MoxHelper do
         |> client().set_state()
       end
 
-      def set_owner() do
+      def set_owner do
         client().get_state()
         |> Map.put(:owner, self())
         |> client().set_state()

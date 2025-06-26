@@ -2,7 +2,7 @@
   configs: [
     %{
       name: "default",
-      strict: false,
+      strict: true,
       checks: %{
         extra: [
           {Credo.Check.Refactor.LongQuoteBlocks, max_line_count: 200},

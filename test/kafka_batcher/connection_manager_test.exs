@@ -22,7 +22,7 @@ defmodule ConnectionManagerTest do
     end)
   end
 
-  def prepare_producers() do
+  def prepare_producers do
     KafkaBatcher.ProducerHelper.connection_manager_up()
     :ok
   end

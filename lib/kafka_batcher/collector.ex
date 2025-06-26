@@ -74,18 +74,18 @@ defmodule KafkaBatcher.Collector do
       @doc """
       Set the lock mode after a produce error in the topic
       """
-      def set_lock() do
+      def set_lock do
         send(__MODULE__, :set_lock)
       end
 
       @doc """
       Retrieves the collector config
       """
-      def get_config() do
+      def get_config do
         GenServer.call(__MODULE__, :get_config)
       end
 
-      def get_compile_config() do
+      def get_compile_config do
         @compile_config
       end
 
@@ -198,7 +198,7 @@ defmodule KafkaBatcher.Collector do
         do_restart()
       end
 
-      defp do_restart() do
+      defp do_restart do
         timeout = Application.get_env(:kafka_batcher, :reconnect_timeout, 5_000)
         :erlang.send_after(timeout, self(), :init_accumulators)
       end

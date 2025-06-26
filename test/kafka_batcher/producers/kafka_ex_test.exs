@@ -1,7 +1,8 @@
 defmodule Producers.KafkaExTest do
+  alias KafkaBatcher.{MessageObject, Producers}
+
   use ExUnit.Case
   use KafkaBatcher.Mocks
-  alias KafkaBatcher.MessageObject
 
   @client_name :kafka_producer_client
   @topic1 "topic1"
@@ -36,7 +37,7 @@ defmodule Producers.KafkaExTest do
       {:ok, self()}
     end)
 
-    {:ok, _} = KafkaBatcher.Producers.KafkaEx.start_client()
+    {:ok, _} = Producers.KafkaEx.start_client()
   end
 
   test "get partitions count" do
@@ -54,7 +55,7 @@ defmodule Producers.KafkaExTest do
       topic_metadatas
     end)
 
-    {:ok, cnt1} = KafkaBatcher.Producers.KafkaEx.get_partitions_count(@topic1)
+    {:ok, cnt1} = Producers.KafkaEx.get_partitions_count(@topic1)
     assert cnt1 == partitions_count
   end
 
@@ -72,7 +73,7 @@ defmodule Producers.KafkaExTest do
       {:ok, :rand.uniform(1_000)}
     end)
 
-    KafkaBatcher.Producers.KafkaEx.produce_list(@messages, @topic1, 5, topic1_config)
+    Producers.KafkaEx.produce_list(@messages, @topic1, 5, topic1_config)
   end
 
   test "produce without partitions" do
@@ -119,7 +120,7 @@ defmodule Producers.KafkaExTest do
       topic_metadatas
     end)
 
-    KafkaBatcher.Producers.KafkaEx.produce_list(@messages, @topic2, nil, topic2_config)
+    Producers.KafkaEx.produce_list(@messages, @topic2, nil, topic2_config)
   end
 
   defp gen_list(len) do

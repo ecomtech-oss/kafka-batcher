@@ -22,7 +22,7 @@ defmodule KafkaBatcher.ConnectionManager do
 
   # Public API
   @spec start_link() :: :ignore | {:error, any()} | {:ok, pid()}
-  def start_link() do
+  def start_link do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
@@ -38,7 +38,7 @@ defmodule KafkaBatcher.ConnectionManager do
 
   @doc "Checks that Kafka client is already started"
   @spec client_started?() :: boolean()
-  def client_started?() do
+  def client_started? do
     GenServer.call(__MODULE__, :client_started?)
   end
 
@@ -120,7 +120,7 @@ defmodule KafkaBatcher.ConnectionManager do
     end
   end
 
-  defp start_producers() do
+  defp start_producers do
     KafkaBatcher.Config.get_configs_by_topic_name()
     |> Enum.reduce_while(:ok, fn {topic_name, config}, _ ->
       case @producer.start_producer(topic_name, config) do
@@ -138,7 +138,7 @@ defmodule KafkaBatcher.ConnectionManager do
     end)
   end
 
-  defp prepare_connection() do
+  defp prepare_connection do
     case start_client() do
       {:ok, pid} ->
         case start_producers() do
@@ -156,7 +156,7 @@ defmodule KafkaBatcher.ConnectionManager do
     end
   end
 
-  defp start_client() do
+  defp start_client do
     case @producer.start_client() do
       {:ok, pid} ->
         {:ok, pid}

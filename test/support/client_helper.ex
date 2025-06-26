@@ -4,15 +4,15 @@ defmodule KafkaBatcher.ClientHelper do
 
   defmacro __using__(opts) do
     quote location: :keep, bind_quoted: [opts: opts] do
-      defp reg_name() do
+      defp reg_name do
         Keyword.fetch!(unquote(Macro.escape(opts)), :reg_name)
       end
 
-      def init() do
+      def init do
         start_link()
       end
 
-      def start_link() do
+      def start_link do
         Agent.start_link(fn -> %KafkaBatcher.MoxHelper.State{} end, name: reg_name())
       end
 

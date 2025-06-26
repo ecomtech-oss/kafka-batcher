@@ -10,36 +10,32 @@ defmodule KafkaBatcher.Producers.Base do
       require Logger
 
       def produce_list(messages, topic, nil, config) when is_list(messages) and is_binary(topic) and is_list(config) do
-        try do
-          with {:ok, partitions_count} <- get_partitions_count(topic),
-               grouped_messages <- group_messages(messages, topic, partitions_count, partition_strategy_from(config)),
-               :ok <- produce_list_to_topic(grouped_messages, topic, config) do
-            :ok
-          else
-            error ->
-              @error_notifier.report(
-                type: "KafkaBatcherProducerError",
-                message: "event#produce topic=#{topic} error=#{inspect(error)}"
-              )
+        with {:ok, partitions_count} <- get_partitions_count(topic),
+             grouped_messages <- group_messages(messages, topic, partitions_count, partition_strategy_from(config)),
+             :ok <- produce_list_to_topic(grouped_messages, topic, config) do
+          :ok
+        else
+          error ->
+            @error_notifier.report(
+              type: "KafkaBatcherProducerError",
+              message: "event#produce topic=#{topic} error=#{inspect(error)}"
+            )
 
-              error
-          end
-        rescue
-          err ->
-            @error_notifier.report(err, stacktrace: __STACKTRACE__)
-            {:error, :failed_push_to_kafka}
+            error
         end
+      rescue
+        err ->
+          @error_notifier.report(err, stacktrace: __STACKTRACE__)
+          {:error, :failed_push_to_kafka}
       end
 
       def produce_list(messages, topic, partition, config)
           when is_list(messages) and is_binary(topic) and is_list(config) and is_integer(partition) do
-        try do
-          produce_list_to_topic(%{partition => messages}, topic, config)
-        rescue
-          err ->
-            @error_notifier.report(err, stacktrace: __STACKTRACE__)
-            {:error, :failed_push_to_kafka}
-        end
+        produce_list_to_topic(%{partition => messages}, topic, config)
+      rescue
+        err ->
+          @error_notifier.report(err, stacktrace: __STACKTRACE__)
+          {:error, :failed_push_to_kafka}
       end
 
       def produce_list(messages, topic, partition, config) do

@@ -15,16 +15,19 @@ defmodule KafkaBatcher.Mocks do
 end
 
 defmodule KafkaBatcher.ProducerHelper do
+  alias KafkaBatcher.Producers.TestProducer
+  alias KafkaBatcher.TempStorage.TestStorage
+
   @moduledoc false
   use ExUnit.Case
 
-  def init() do
+  def init do
     ## The call start_client explicitly, to avoid a race when restarting the ConnectionManager
-    KafkaBatcher.Producers.TestProducer.init()
-    KafkaBatcher.TempStorage.TestStorage.init()
+    TestProducer.init()
+    TestStorage.init()
   end
 
-  def connection_manager_up() do
+  def connection_manager_up do
     case Process.whereis(KafkaBatcher.Supervisor) do
       nil ->
         {:ok, sup_pid} = KafkaBatcher.Supervisor.start_link([])
@@ -40,7 +43,7 @@ defmodule KafkaBatcher.ProducerHelper do
     :ok
   end
 
-  def ready_connection_manager?() do
+  def ready_connection_manager? do
     ready_connection_manager?(10)
   end
 
@@ -59,7 +62,7 @@ defmodule KafkaBatcher.ProducerHelper do
     end
   end
 
-  def ready_pool?() do
+  def ready_pool? do
     ready_pool?(10)
   end
 
@@ -68,19 +71,17 @@ defmodule KafkaBatcher.ProducerHelper do
   end
 
   defp ready_pool?(cnt) do
-    try do
-      case KafkaBatcher.ConnectionManager.client_started?() do
-        true ->
-          true
+    case KafkaBatcher.ConnectionManager.client_started?() do
+      true ->
+        true
 
-        false ->
-          Process.sleep(100)
-          ready_pool?(cnt - 1)
-      end
-    catch
-      _, _reason ->
+      false ->
         Process.sleep(100)
         ready_pool?(cnt - 1)
     end
+  catch
+    _, _reason ->
+      Process.sleep(100)
+      ready_pool?(cnt - 1)
   end
 end

@@ -1,7 +1,12 @@
 defmodule Producers.KaffeTest do
+  alias KafkaBatcher.{
+    MessageObject,
+    Producers,
+    Test.CalculatePartitionByValueCollector
+  }
+
   use ExUnit.Case
   use KafkaBatcher.Mocks
-  alias KafkaBatcher.MessageObject
 
   @client_name :kafka_producer_client
   @topic1 "topic1"
@@ -92,7 +97,7 @@ defmodule Producers.KaffeTest do
       {:ok, self()}
     end)
 
-    {:ok, _} = KafkaBatcher.Producers.Kaffe.start_client()
+    {:ok, _} = Producers.Kaffe.start_client()
   end
 
   test "start client with SASL_SSL" do
@@ -119,7 +124,7 @@ defmodule Producers.KaffeTest do
       {:ok, self()}
     end)
 
-    {:ok, _} = KafkaBatcher.Producers.Kaffe.start_client()
+    {:ok, _} = Producers.Kaffe.start_client()
   end
 
   test "start client with empty parameter SASL_SSL" do
@@ -146,7 +151,7 @@ defmodule Producers.KaffeTest do
       {:ok, self()}
     end)
 
-    {:ok, _} = KafkaBatcher.Producers.Kaffe.start_client()
+    {:ok, _} = Producers.Kaffe.start_client()
   end
 
   test "start client with bad SASL parameter" do
@@ -174,7 +179,7 @@ defmodule Producers.KaffeTest do
                {:ssl, false},
                {:sasl, :undefined},
                {:endpoints, [{"localhost", 9092}]},
-               {:partition_fn, &KafkaBatcher.Test.CalculatePartitionByValueCollector.calculate_partition/4},
+               {:partition_fn, &CalculatePartitionByValueCollector.calculate_partition/4},
                {:allow_topic_auto_creation, false},
                {:partition_strategy, :random},
                {:required_acks, -1},
@@ -192,7 +197,7 @@ defmodule Producers.KaffeTest do
     end)
 
     topic1_config = KafkaBatcher.Config.get_collector_config(@topic1)
-    :ok = KafkaBatcher.Producers.Kaffe.start_producer(@topic1, topic1_config)
+    :ok = Producers.Kaffe.start_producer(@topic1, topic1_config)
   end
 
   test "get partitions count" do
@@ -203,7 +208,7 @@ defmodule Producers.KaffeTest do
     end)
 
     cnt = Map.get(@partition_topics, @topic1)
-    {:ok, cnt1} = KafkaBatcher.Producers.Kaffe.get_partitions_count(@topic1)
+    {:ok, cnt1} = Producers.Kaffe.get_partitions_count(@topic1)
     assert cnt == cnt1
   end
 
@@ -217,7 +222,7 @@ defmodule Producers.KaffeTest do
     end)
 
     topic1_config = KafkaBatcher.Config.get_collector_config(@topic1)
-    KafkaBatcher.Producers.Kaffe.produce_list(@messages, @topic1, 5, topic1_config)
+    Producers.Kaffe.produce_list(@messages, @topic1, 5, topic1_config)
   end
 
   test "produce sync without partitions" do
@@ -249,6 +254,6 @@ defmodule Producers.KaffeTest do
     end)
 
     topic2_config = KafkaBatcher.Config.get_collector_config(@topic2)
-    KafkaBatcher.Producers.Kaffe.produce_list(@messages, @topic2, nil, topic2_config)
+    Producers.Kaffe.produce_list(@messages, @topic2, nil, topic2_config)
   end
 end

@@ -1,10 +1,10 @@
 defmodule KafkaBatcher.TempStorageTest do
   use ExUnit.Case, async: false
 
-  alias Uniq.UUID
   alias KafkaBatcher.Collector.State, as: CollectorState
   alias KafkaBatcher.TempStorage
   alias KafkaBatcher.TempStorage.TestStorage
+  alias Uniq.UUID
 
   @recheck_kafka_availability_interval Application.compile_env(
                                          :kafka_batcher,
