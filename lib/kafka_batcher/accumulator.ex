@@ -157,12 +157,10 @@ defmodule KafkaBatcher.Accumulator do
 
   @spec produce_list(messages :: [CollectorBehaviour.event()], state :: State.t()) :: :ok | {:error, any()}
   defp produce_list(messages, state) when is_list(messages) do
-    try do
-      @producer.produce_list(messages, state.topic_name, state.partition, state.config)
-    catch
-      _, reason ->
-        {:error, reason}
-    end
+    @producer.produce_list(messages, state.topic_name, state.partition, state.config)
+  catch
+    _, reason ->
+      {:error, reason}
   end
 
   defp build_state(args) do

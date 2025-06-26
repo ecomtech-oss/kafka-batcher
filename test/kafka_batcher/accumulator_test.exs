@@ -14,12 +14,12 @@ defmodule KafkaBatcher.AccumulatorTest do
     prepare_mocks()
   end
 
-  def prepare_producers() do
+  def prepare_producers do
     KafkaBatcher.ProducerHelper.connection_manager_up()
     :ok
   end
 
-  def prepare_mocks() do
+  def prepare_mocks do
     TestProducer.set_owner()
     TestProducer.set_notification_mode(:do_produce, :on)
     TestStorage.set_owner()

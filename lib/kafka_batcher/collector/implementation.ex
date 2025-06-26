@@ -4,7 +4,7 @@ defmodule KafkaBatcher.Collector.Implementation do
   """
 
   require Logger
-  alias KafkaBatcher.{AccumulatorsPoolSupervisor, MessageObject, Collector.State}
+  alias KafkaBatcher.{AccumulatorsPoolSupervisor, Collector.State, MessageObject}
   @producer Application.compile_env(:kafka_batcher, :producer_module, KafkaBatcher.Producers.Kaffe)
 
   def choose_partition(_message, _topic_name, _config, nil), do: {:error, :kafka_unavailable}
@@ -28,12 +28,18 @@ defmodule KafkaBatcher.Collector.Implementation do
     start_accumulator(topic_name: topic_name, config: config, collector: state.collector)
   end
 
-  defp start_accumulators_by_partitions(count, %State{topic_name: topic_name, config: config} = state) do
+  defp start_accumulators_by_partitions(count, %State{} = state) do
+    opts = [
+      topic_name: state.topic_name,
+      config: state.config,
+      collector: state.collector
+    ]
+
     Enum.reduce_while(
       0..(count - 1),
       :ok,
       fn partition, _ ->
-        case start_accumulator(topic_name: topic_name, partition: partition, config: config, collector: state.collector) do
+        case start_accumulator(Keyword.put(opts, :partition, partition)) do
           :ok ->
             {:cont, :ok}
 

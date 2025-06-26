@@ -17,7 +17,7 @@ if Code.ensure_loaded?(KafkaEx) do
 
     ## KafkaEx start worker
     @impl true
-    def start_client() do
+    def start_client do
       uris = KafkaBatcher.Config.get_endpoints()
 
       @kafka_ex_client.create_worker(@client_name, uris: uris)

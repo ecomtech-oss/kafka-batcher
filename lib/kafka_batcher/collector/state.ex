@@ -3,7 +3,8 @@ defmodule KafkaBatcher.Collector.State do
   Describes the state of KafkaBatcher.Collector and functions working with it
   """
 
-  alias KafkaBatcher.{Accumulator, Collector.State, Collector.Utils, TempStorage}
+  alias KafkaBatcher.{Accumulator, Collector, TempStorage}
+  alias KafkaBatcher.Collector.{State, Utils}
 
   @type t :: %State{
           topic_name: String.t() | nil,
@@ -42,7 +43,7 @@ defmodule KafkaBatcher.Collector.State do
   end
 
   defp add_event(event, %State{collect_by_partition: true, config: config, topic_name: topic_name, partitions_count: count}) do
-    case KafkaBatcher.Collector.Implementation.choose_partition(event, topic_name, config, count) do
+    case Collector.Implementation.choose_partition(event, topic_name, config, count) do
       {:ok, partition} ->
         Accumulator.add_event(event, topic_name, partition)
 

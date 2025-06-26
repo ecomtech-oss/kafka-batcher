@@ -53,7 +53,7 @@ defmodule KafkaBatcher.Config do
   end
 
   @spec general_producer_config() :: Keyword.t()
-  def general_producer_config() do
+  def general_producer_config do
     Application.get_env(:kafka_batcher, :kafka, [])
     |> Keyword.take(allowed_producer_keys())
     |> set_endpoints()
@@ -66,7 +66,7 @@ defmodule KafkaBatcher.Config do
   Return all configured topics with its config.
   """
   @spec get_configs_by_topic_name() :: list({binary(), Keyword.t()})
-  def get_configs_by_topic_name() do
+  def get_configs_by_topic_name do
     get_configs_by_collector!()
     |> Enum.map(fn {_, config} ->
       {Keyword.fetch!(config, :topic_name), config}
@@ -75,7 +75,7 @@ defmodule KafkaBatcher.Config do
   end
 
   @spec get_configs_by_collector!() :: list({atom(), Keyword.t()})
-  def get_configs_by_collector!() do
+  def get_configs_by_collector! do
     Enum.map(fetch_runtime_configs(), fn {collector, runtime_config} ->
       config =
         general_producer_config()
@@ -109,8 +109,8 @@ defmodule KafkaBatcher.Config do
     |> Enum.filter(fn {_, value} -> value != nil end)
   end
 
-  @spec get_endpoints() :: list({binary(), non_neg_integer()})
-  def get_endpoints() do
+  @spec get_endpoints :: list({binary(), non_neg_integer()})
+  def get_endpoints do
     Application.get_env(:kafka_batcher, :kafka, [])
     |> get_endpoints()
   end
@@ -201,7 +201,7 @@ defmodule KafkaBatcher.Config do
     Keyword.put(config, :sasl, new_sasl)
   end
 
-  defp allowed_producer_keys() do
+  defp allowed_producer_keys do
     keys =
       default_producer_config()
       |> Keyword.keys()
@@ -247,7 +247,7 @@ defmodule KafkaBatcher.Config do
     end
   end
 
-  defp fetch_runtime_configs() do
+  defp fetch_runtime_configs do
     Application.get_env(:kafka_batcher, :collectors)
     |> Enum.map(&fetch_runtime_config/1)
   end
@@ -262,7 +262,7 @@ defmodule KafkaBatcher.Config do
     end
   end
 
-  defp default_producer_config() do
+  defp default_producer_config do
     [
       ## brod producer parameters
       ## https://github.com/kafka4beam/brod/blob/master/src/brod_producer.erl

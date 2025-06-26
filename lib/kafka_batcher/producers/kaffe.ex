@@ -14,7 +14,7 @@ defmodule KafkaBatcher.Producers.Kaffe do
   ## -------------------------------------------------------------------------
 
   @impl true
-  def start_client() do
+  def start_client do
     config = KafkaBatcher.Config.general_producer_config()
     endpoints = Keyword.fetch!(config, :endpoints)
 
