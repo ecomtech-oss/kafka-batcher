@@ -76,7 +76,8 @@ defmodule KafkaBatcher.MixProject do
 
   defp aliases do
     [
-      "test.coverage": ["coveralls.cobertura"]
+      "test.coverage": ["coveralls.cobertura"],
+      check: ["compile --warnings-as-errors", "format --check-formatted", "credo", "dialyzer"]
     ]
   end
 
