@@ -21,8 +21,12 @@ defmodule KafkaBatcher.MixProject do
         "coveralls.cobertura": :test
       ],
       dialyzer: [
-        plt_add_deps: :transitive,
-        plt_add_apps: [:mix, :eex]
+        plt_add_deps: :app_tree,
+        plt_add_apps: [:mix, :eex],
+        flags: ~w[
+          error_handling extra_return missing_return underspecs unmatched_returns
+        ]a,
+        list_unused_filters: true
       ],
       package: [
         maintainers: ["Roman Smirnov", "Dmitry Begunkov"],
@@ -33,12 +37,6 @@ defmodule KafkaBatcher.MixProject do
       ],
       docs: [
         before_closing_head_tag: &add_js_to_docs/1
-      ],
-      dialyzer: [
-        flags: ~w[
-          error_handling extra_return missing_return underspecs unmatched_returns
-        ]a,
-        list_unused_filters: true
       ]
     ]
   end
