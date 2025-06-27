@@ -6,12 +6,11 @@ defmodule KafkaBatcher.AccumulatorTest do
   alias KafkaBatcher.Producers.TestProducer
   alias KafkaBatcher.TempStorage.TestStorage
 
-  setup_all do
-    prepare_producers()
-  end
-
   setup do
+    stub_with(KafkaBatcher.AccumulatorMock, KafkaBatcher.Accumulator)
+    prepare_producers()
     prepare_mocks()
+    on_exit(fn -> Supervisor.stop(KafkaBatcher.Supervisor) end)
   end
 
   def prepare_producers do
