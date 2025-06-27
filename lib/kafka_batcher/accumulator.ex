@@ -6,8 +6,8 @@ defmodule KafkaBatcher.Accumulator do
   """
 
   alias KafkaBatcher.{Accumulator.State, MessageObject, TempStorage}
-  alias KafkaBatcher.Behaviours.Collector, as: CollectorBehaviour
   alias KafkaBatcher.Behaviours.Accumulator, as: AccumulatorBehaviour
+  alias KafkaBatcher.Behaviours.Collector, as: CollectorBehaviour
 
   @behaviour AccumulatorBehaviour
 
