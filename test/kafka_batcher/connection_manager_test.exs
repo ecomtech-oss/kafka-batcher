@@ -10,7 +10,12 @@ defmodule ConnectionManagerTest do
 
   setup_all do
     set_mox_global()
-    stub_with(KafkaBatcher.AccumulatorMock, KafkaBatcher.Accumulator)
+
+    stub_with(
+      KafkaBatcher.Accumulator.ProxyMock,
+      KafkaBatcher.Accumulator.Proxy
+    )
+
     prepare_producers()
     on_exit(fn -> Supervisor.stop(KafkaBatcher.Supervisor) end)
   end
