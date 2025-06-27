@@ -72,7 +72,11 @@ defmodule Producers.CollectorTest do
   ]
 
   setup do
-    stub_with(KafkaBatcher.AccumulatorMock, KafkaBatcher.Accumulator)
+    stub_with(
+      KafkaBatcher.Accumulator.ProxyMock,
+      KafkaBatcher.Accumulator.Proxy
+    )
+
     prepare_producers()
     prepare_mocks()
     on_exit(fn -> Supervisor.stop(KafkaBatcher.Supervisor) end)
@@ -430,11 +434,8 @@ defmodule Producers.CollectorTest do
 
     events = generate_events(@template_events, batch_size)
 
-    KafkaBatcher.AccumulatorMock
-    |> expect(:add_event, 1, fn _, _, _ ->
-      :timer.sleep(2000)
-      throw(:timeout)
-    end)
+    KafkaBatcher.Accumulator.ProxyMock
+    |> expect(:call, 1, fn _, _ -> throw(:timeout) end)
 
     assert {:error, :accumulator_unavailable} =
              events

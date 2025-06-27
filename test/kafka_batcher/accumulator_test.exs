@@ -7,7 +7,11 @@ defmodule KafkaBatcher.AccumulatorTest do
   alias KafkaBatcher.TempStorage.TestStorage
 
   setup do
-    stub_with(KafkaBatcher.AccumulatorMock, KafkaBatcher.Accumulator)
+    stub_with(
+      KafkaBatcher.Accumulator.ProxyMock,
+      KafkaBatcher.Accumulator.Proxy
+    )
+
     prepare_producers()
     prepare_mocks()
     on_exit(fn -> Supervisor.stop(KafkaBatcher.Supervisor) end)

@@ -20,8 +20,6 @@ defmodule KafkaBatcher.Collector.State do
           partitions_count: pos_integer() | nil
         }
 
-  @accumulator Application.compile_env(:kafka_batcher, :accumulator, Accumulator)
-
   defstruct topic_name: nil,
             config: [],
             collect_by_partition: true,
@@ -40,34 +38,42 @@ defmodule KafkaBatcher.Collector.State do
       :ok ->
         {:ok, state}
 
-      {:error, {reason, _failed_events}} ->
+      {:error, reason, _failed_event_batches} ->
         {:error, reason, %State{state | locked?: true}}
     end
   end
 
   defp try_to_add_events(events, %State{} = state) do
-    Enum.reduce(events, :ok, fn
-      event, :ok ->
-        event = Utils.transform_event(event)
-
-        case add_event(state, event) do
-          :ok -> :ok
-          {:error, reason} -> {:error, {reason, [event]}}
-        end
-
-      event, {:error, {reason, events}} ->
-        {:error, {reason, [Utils.transform_event(event) | events]}}
-    end)
+    events
+    |> Enum.map(&Utils.transform_event/1)
+    |> Enum.reduce(:ok, &try_to_add_event(&1, &2, state))
   end
 
-  defp add_event(%State{} = state, event) do
-    with {:ok, partition} <- choose_partition(state, event) do
-      @accumulator.add_event(event, state.topic_name, partition)
+  defp try_to_add_event(event, :ok, %State{} = state) do
+    case choose_partition(state, event) do
+      {:ok, partition} ->
+        case Accumulator.add_event(event, state.topic_name, partition) do
+          :ok -> :ok
+          {:error, reason} -> {:error, reason, %{partition => [event]}}
+        end
+
+      {:error, reason} ->
+        {:error, reason, %{nil => [event]}}
     end
-  catch
-    _, _reason ->
-      Logger.warning("KafkaBatcher: Couldn't get through to accumulator #{@accumulator}")
-      {:error, :accumulator_unavailable}
+  end
+
+  defp try_to_add_event(event, {:error, reason, failed_event_batches}, state) do
+    partition =
+      case choose_partition(state, event) do
+        {:ok, partition} -> partition
+        {:error, _reason} -> nil
+      end
+
+    {
+      :error,
+      reason,
+      Map.update(failed_event_batches, partition, [], &[event | &1])
+    }
   end
 
   defp choose_partition(%State{collect_by_partition: true} = state, event) do
@@ -86,15 +92,17 @@ defmodule KafkaBatcher.Collector.State do
   defp save_failed_events(:ok, _state), do: :ok
 
   defp save_failed_events(
-         {:error, {_reason, failed_events}} = result,
+         {:error, _reason, failed_event_batches} = result,
          %State{} = state
        ) do
-    TempStorage.save_batch(%TempStorage.Batch{
-      messages: Enum.reverse(failed_events),
-      topic: state.topic_name,
-      partition: nil,
-      producer_config: state.config
-    })
+    for {partition, failed_events} <- failed_event_batches do
+      TempStorage.save_batch(%TempStorage.Batch{
+        messages: Enum.reverse(failed_events),
+        topic: state.topic_name,
+        partition: partition,
+        producer_config: state.config
+      })
+    end
 
     result
   end

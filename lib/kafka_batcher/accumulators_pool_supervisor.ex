@@ -6,8 +6,8 @@ defmodule KafkaBatcher.AccumulatorsPoolSupervisor do
   use DynamicSupervisor
 
   alias KafkaBatcher.Accumulator
+
   @dialyzer {:no_return, {:init, 1}}
-  @accumulator Application.compile_env(:kafka_batcher, :accumulator, Accumulator)
 
   def start_link(config) do
     DynamicSupervisor.start_link(__MODULE__, config, name: reg_name(config))
@@ -35,7 +35,7 @@ defmodule KafkaBatcher.AccumulatorsPoolSupervisor do
   end
 
   def start_accumulator(args) do
-    DynamicSupervisor.start_child(reg_name(args), @accumulator.child_spec(args))
+    DynamicSupervisor.start_child(reg_name(args), Accumulator.child_spec(args))
   end
 
   def reg_name(args) do
