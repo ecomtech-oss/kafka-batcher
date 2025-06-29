@@ -5,8 +5,6 @@ defmodule KafkaBatcher.Accumulator do
   See details how it works in KafkaBatcher.Accumulator.State module
   """
 
-  require Logger
-
   alias KafkaBatcher.{Accumulator.State, MessageObject, TempStorage}
   alias KafkaBatcher.Behaviours.Collector, as: CollectorBehaviour
 
@@ -24,7 +22,11 @@ defmodule KafkaBatcher.Accumulator do
   def child_spec(args) do
     %{
       id: reg_name(args),
-      start: {__MODULE__, :start_link, [args]}
+      start: {
+        Keyword.get(args, :accumulator_mod, __MODULE__),
+        :start_link,
+        [args]
+      }
     }
   end
 
@@ -33,6 +35,10 @@ defmodule KafkaBatcher.Accumulator do
   """
   def add_event(%MessageObject{} = event, topic_name, partition \\ nil) do
     GenServer.call(reg_name(topic_name: topic_name, partition: partition), {:add_event, event})
+  catch
+    _, _reason ->
+      Logger.warning("KafkaBatcher: Couldn't get through to accumulator")
+      {:error, :accumulator_unavailable}
   end
 
   ##
