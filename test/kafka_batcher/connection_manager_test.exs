@@ -1,7 +1,6 @@
 defmodule ConnectionManagerTest do
   use ExUnit.Case, async: false
-
-  import Mox
+  use KafkaBatcher.Mocks
 
   alias KafkaBatcher.ConnectionManager
   alias KafkaBatcher.Producers.TestProducer
@@ -9,18 +8,8 @@ defmodule ConnectionManagerTest do
   @retry_timeout 100
 
   setup_all do
-    set_mox_global()
-
-    stub_with(
-      KafkaBatcher.Accumulator.ProxyMock,
-      KafkaBatcher.Accumulator.Proxy
-    )
-
     prepare_producers()
-    on_exit(fn -> Supervisor.stop(KafkaBatcher.Supervisor) end)
   end
-
-  setup :verify_on_exit!
 
   setup do
     TestProducer.set_owner()

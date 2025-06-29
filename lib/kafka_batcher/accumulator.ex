@@ -10,7 +10,6 @@ defmodule KafkaBatcher.Accumulator do
 
   @error_notifier Application.compile_env(:kafka_batcher, :error_notifier, KafkaBatcher.DefaultErrorNotifier)
   @producer Application.compile_env(:kafka_batcher, :producer_module, KafkaBatcher.Producers.Kaffe)
-  @proxy Application.compile_env(:kafka_batcher, [:accumulator, :proxy], KafkaBatcher.Accumulator.Proxy)
 
   use GenServer
   require Logger
@@ -23,7 +22,11 @@ defmodule KafkaBatcher.Accumulator do
   def child_spec(args) do
     %{
       id: reg_name(args),
-      start: {__MODULE__, :start_link, [args]}
+      start: {
+        Keyword.get(args, :accumulator_mod, __MODULE__),
+        :start_link,
+        [args]
+      }
     }
   end
 
@@ -31,10 +34,7 @@ defmodule KafkaBatcher.Accumulator do
   Finds appropriate Accumulator process by topic & partition and dispatches `event` to it
   """
   def add_event(%MessageObject{} = event, topic_name, partition \\ nil) do
-    @proxy.call(
-      reg_name(topic_name: topic_name, partition: partition),
-      {:add_event, event}
-    )
+    GenServer.call(reg_name(topic_name: topic_name, partition: partition), {:add_event, event})
   catch
     _, _reason ->
       Logger.warning("KafkaBatcher: Couldn't get through to accumulator")

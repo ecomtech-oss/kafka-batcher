@@ -8,8 +8,6 @@ config :kafka_batcher, :kafka_ex_client, KafkaBatcher.KafkaExMock
 
 config :kafka_batcher, :kafka_ex_metadata, KafkaBatcher.KafkaEx.MetadataMock
 
-config :kafka_batcher, :accumulator, proxy: KafkaBatcher.Accumulator.ProxyMock
-
 config :kafka_batcher,
   recheck_kafka_availability_interval: 50,
   storage_impl: KafkaBatcher.TempStorage.TestStorage,
