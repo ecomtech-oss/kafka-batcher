@@ -3,7 +3,7 @@ defmodule KafkaBatcher.Collector.State do
   Describes the state of KafkaBatcher.Collector and functions working with it
   """
 
-  alias KafkaBatcher.{Accumulator, Collector, TempStorage}
+  alias KafkaBatcher.{Accumulator, Collector, MessageObject, TempStorage}
   alias KafkaBatcher.Collector.{State, Utils}
 
   require Logger
@@ -46,33 +46,41 @@ defmodule KafkaBatcher.Collector.State do
   defp try_to_add_events(events, %State{} = state) do
     events
     |> Enum.map(&Utils.transform_event/1)
-    |> Enum.reduce(:ok, &try_to_add_event(&1, &2, state))
+    |> Enum.reduce(:ok, fn %MessageObject{} = event, result ->
+      case choose_partition(state, event) do
+        {:ok, partition} when result == :ok ->
+          try_to_add_event(event, state.topic_name, partition)
+
+        {:ok, partition} ->
+          keep_failed_event(result, event, elem(result, 1), partition)
+
+        {:error, reason} ->
+          keep_failed_event(result, event, reason, nil)
+      end
+    end)
   end
 
-  defp try_to_add_event(event, :ok, %State{} = state) do
-    case choose_partition(state, event) do
-      {:ok, partition} ->
-        case Accumulator.add_event(event, state.topic_name, partition) do
-          :ok -> :ok
-          {:error, reason} -> {:error, reason, %{partition => [event]}}
-        end
-
-      {:error, reason} ->
-        {:error, reason, %{nil => [event]}}
+  defp try_to_add_event(event, topic_name, partition) do
+    case Accumulator.add_event(event, topic_name, partition) do
+      :ok -> :ok
+      {:error, reason} -> keep_failed_event(:ok, event, reason, partition)
     end
   end
 
-  defp try_to_add_event(event, {:error, reason, failed_event_batches}, state) do
-    partition =
-      case choose_partition(state, event) do
-        {:ok, partition} -> partition
-        {:error, _reason} -> nil
-      end
+  defp keep_failed_event(:ok, event, reason, partition) do
+    {:error, reason, %{partition => [event]}}
+  end
 
+  defp keep_failed_event(
+         {:error, reason, failed_event_batches},
+         event,
+         _reason,
+         partition
+       ) do
     {
       :error,
       reason,
-      Map.update(failed_event_batches, partition, [], &[event | &1])
+      Map.update(failed_event_batches, partition, [event], &[event | &1])
     }
   end
 
