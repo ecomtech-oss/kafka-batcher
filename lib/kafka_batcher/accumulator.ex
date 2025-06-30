@@ -20,13 +20,11 @@ defmodule KafkaBatcher.Accumulator do
 
   @doc "Returns a specification to start this module under a supervisor"
   def child_spec(args) do
+    {accumulator_mod, args} = Keyword.pop(args, :accumulator_mod, __MODULE__)
+
     %{
       id: reg_name(args),
-      start: {
-        Keyword.get(args, :accumulator_mod, __MODULE__),
-        :start_link,
-        [args]
-      }
+      start: {accumulator_mod, :start_link, [args]}
     }
   end
 
