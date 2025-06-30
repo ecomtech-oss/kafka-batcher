@@ -428,25 +428,25 @@ defmodule Producers.CollectorTest do
     setup do
       topic2_config = Test.SimpleCollector.get_config()
       topic2 = TestProducer.topic_name(2)
-      pool_supervisor = KafkaBatcher.AccumulatorsPoolSupervisor.reg_name(topic_name: topic2)
+      pool_sup = KafkaBatcher.AccumulatorsPoolSupervisor.reg_name(topic_name: topic2)
 
-      Supervisor.terminate_child(KafkaBatcher.Supervisor, pool_supervisor)
-      Supervisor.restart_child(KafkaBatcher.Supervisor, pool_supervisor)
+      Supervisor.terminate_child(KafkaBatcher.Supervisor, pool_sup)
+      Supervisor.restart_child(KafkaBatcher.Supervisor, pool_sup)
 
-      KafkaBatcher.AccumulatorsPoolSupervisor.start_accumulator(
+      opts = [
         topic_name: topic2,
-        accumulator_mod: KafkaBatcher.Accumulators.FailingAccumulator
-      )
+        config: topic2_config,
+        collector: Test.SimpleCollector
+      ]
+
+      opts
+      |> Keyword.put(:accumulator_mod, KafkaBatcher.Accumulators.FailingAccumulator)
+      |> KafkaBatcher.AccumulatorsPoolSupervisor.start_accumulator()
 
       on_exit(fn ->
-        Supervisor.terminate_child(KafkaBatcher.Supervisor, pool_supervisor)
-        Supervisor.restart_child(KafkaBatcher.Supervisor, pool_supervisor)
-
-        KafkaBatcher.AccumulatorsPoolSupervisor.start_accumulator(
-          topic_name: topic2,
-          config: topic2_config,
-          collector: Test.SimpleCollector
-        )
+        Supervisor.terminate_child(KafkaBatcher.Supervisor, pool_sup)
+        Supervisor.restart_child(KafkaBatcher.Supervisor, pool_sup)
+        KafkaBatcher.AccumulatorsPoolSupervisor.start_accumulator(opts)
       end)
 
       {:ok, %{topic: topic2, topic_config: topic2_config}}
