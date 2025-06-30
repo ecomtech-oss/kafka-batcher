@@ -424,6 +424,101 @@ defmodule Producers.CollectorTest do
     {^expect_messages, ^topic_name, _call_partition, _config} = parameters
   end
 
+  describe "with a failing accumulator" do
+    setup do
+      topic2_config = Test.SimpleCollector.get_config()
+      topic2 = TestProducer.topic_name(2)
+      pool_sup = KafkaBatcher.AccumulatorsPoolSupervisor.reg_name(topic_name: topic2)
+
+      Supervisor.terminate_child(KafkaBatcher.Supervisor, pool_sup)
+      Supervisor.restart_child(KafkaBatcher.Supervisor, pool_sup)
+
+      opts = [
+        topic_name: topic2,
+        config: topic2_config,
+        collector: Test.SimpleCollector
+      ]
+
+      opts
+      |> Keyword.put(:accumulator_mod, KafkaBatcher.Accumulators.FailingAccumulator)
+      |> KafkaBatcher.AccumulatorsPoolSupervisor.start_accumulator()
+
+      on_exit(fn ->
+        Supervisor.terminate_child(KafkaBatcher.Supervisor, pool_sup)
+        Supervisor.restart_child(KafkaBatcher.Supervisor, pool_sup)
+        KafkaBatcher.AccumulatorsPoolSupervisor.start_accumulator(opts)
+      end)
+
+      {:ok, %{topic: topic2, topic_config: topic2_config}}
+    end
+
+    test "fails to produce with SimpleCollector", %{
+      topic: topic,
+      topic_config: topic_config
+    } do
+      batch_size = Keyword.fetch!(topic_config, :batch_size)
+
+      events = generate_events(@template_events, batch_size)
+
+      assert {:error, :accumulator_unavailable} =
+               events
+               |> Enum.map(fn event -> {"", event} end)
+               |> KafkaBatcher.Test.SimpleCollector.add_events()
+
+      assert_receive(%{action: :save_batch, parameters: retry_data})
+
+      %Batch{
+        messages: retry_messages,
+        topic: retry_topic,
+        partition: retry_partition,
+        producer_config: retry_config
+      } = retry_data
+
+      assert retry_topic === topic
+      assert retry_config === topic_config
+      assert retry_partition === nil
+
+      assert retry_messages ===
+               Enum.map(
+                 events,
+                 fn event -> %MessageObject{key: "", value: event} end
+               )
+    end
+  end
+
+  describe "with a failing collector" do
+    setup do
+      topic2_config = Test.SimpleCollector.get_config()
+
+      Supervisor.terminate_child(KafkaBatcher.Supervisor, Test.SimpleCollector)
+      Supervisor.delete_child(KafkaBatcher.Supervisor, Test.SimpleCollector)
+
+      Supervisor.start_child(
+        KafkaBatcher.Supervisor,
+        Supervisor.child_spec(Test.FailingCollector, id: Test.SimpleCollector)
+      )
+
+      on_exit(fn ->
+        Supervisor.terminate_child(KafkaBatcher.Supervisor, Test.SimpleCollector)
+        Supervisor.delete_child(KafkaBatcher.Supervisor, Test.SimpleCollector)
+        Supervisor.start_child(KafkaBatcher.Supervisor, Test.SimpleCollector.child_spec(topic2_config))
+      end)
+
+      {:ok, %{topic_config: topic2_config}}
+    end
+
+    test "fails to produce with SimpleCollector", %{topic_config: topic_config} do
+      batch_size = Keyword.fetch!(topic_config, :batch_size)
+
+      events = generate_events(@template_events, batch_size)
+
+      assert {:error, :kafka_unavailable} =
+               events
+               |> Enum.map(fn event -> {"", event} end)
+               |> KafkaBatcher.Test.SimpleCollector.add_events()
+    end
+  end
+
   ## INTERNAL FUNCTIONS
   defp calc_partition(event, key, topic_name, partitions_count, topic1_config) do
     calc_fn = Keyword.fetch!(topic1_config, :partition_fn)

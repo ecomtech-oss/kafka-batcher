@@ -6,6 +6,7 @@ defmodule KafkaBatcher.AccumulatorsPoolSupervisor do
   use DynamicSupervisor
 
   alias KafkaBatcher.Accumulator
+
   @dialyzer {:no_return, {:init, 1}}
 
   def start_link(config) do
