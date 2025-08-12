@@ -4,8 +4,8 @@ defmodule KafkaBatcher.MixProject do
   def project do
     [
       app: :kafka_batcher,
-      version: "1.0.2",
-      elixir: "~> 1.15",
+      version: "1.1.0",
+      elixir: "~> 1.16",
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: Mix.compilers(),
       aliases: aliases(),
@@ -59,6 +59,7 @@ defmodule KafkaBatcher.MixProject do
       {:kafka_ex, "~> 0.12", optional: true},
       {:jason, ">= 0.0.0"},
       {:prom_ex, ">= 0.0.0", optional: true},
+      {:plug, "~> 1.0", optional: true},
       {:telemetry, "~> 1.0"},
       {:brod, "~> 3.16", override: true, only: [:dev, :test]},
       # For tests and code quality
