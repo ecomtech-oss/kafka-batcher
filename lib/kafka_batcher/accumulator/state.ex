@@ -13,6 +13,7 @@ defmodule KafkaBatcher.Accumulator.State do
 
   alias KafkaBatcher.{Accumulator.State, MessageObject}
   @error_notifier Application.compile_env(:kafka_batcher, :error_notifier, KafkaBatcher.DefaultErrorNotifier)
+  @json_library Application.compile_env(:kafka_batcher, :json_library, Jason)
 
   @type t :: %State{
           topic_name: binary(),
@@ -161,6 +162,6 @@ defmodule KafkaBatcher.Accumulator.State do
   end
 
   defp maybe_encode(value) do
-    Jason.encode!(value)
+    @json_library.encode!(value)
   end
 end
