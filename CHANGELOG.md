@@ -5,6 +5,14 @@ Please refer to https://keepachangelog.com/en/1.0.0/ for format.
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-08-12
+### Changes
+- Improve KafkaBatcher.Collector reliability
+- Fix credo complaints
+- Fix dialyzer complaints
+- Fix flapping fail in Producers.KaffeTest
+
+
 ## [1.0.2] - 2024-05-08
 ### Bugfixes
 - Cache partitions count in the collector state
