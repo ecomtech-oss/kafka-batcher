@@ -3,16 +3,20 @@ defmodule KafkaBatcher.Collector.State do
   Describes the state of KafkaBatcher.Collector and functions working with it
   """
 
-  alias KafkaBatcher.{Accumulator, Collector, MessageObject, TempStorage}
+  alias KafkaBatcher.{
+    Accumulator,
+    Collector,
+    MessageObject,
+    PipelineUnit,
+    TempStorage
+  }
+
   alias KafkaBatcher.Collector.{State, Utils}
 
   require Logger
 
   @type t :: %State{
-          topic_name: String.t() | nil,
-          config: Keyword.t(),
-          collect_by_partition: boolean(),
-          collector: atom() | nil,
+          pipeline_unit: PipelineUnit.t(),
           locked?: boolean(),
           last_check_timestamp: non_neg_integer() | nil,
           ready?: boolean(),
@@ -20,17 +24,17 @@ defmodule KafkaBatcher.Collector.State do
           partitions_count: pos_integer() | nil
         }
 
-  defstruct topic_name: nil,
-            config: [],
-            collect_by_partition: true,
-            collector: nil,
-            # these fields are used to handle case when Kafka went down suddenly
-            locked?: false,
-            last_check_timestamp: nil,
-            # these fields are used to handle case when Kafka is not available at the start
-            ready?: false,
-            timer_ref: nil,
-            partitions_count: nil
+  @enforce_keys [:pipeline_unit]
+  defstruct @enforce_keys ++
+              [
+                # these fields are used to handle case when Kafka went down suddenly
+                locked?: false,
+                last_check_timestamp: nil,
+                # these fields are used to handle case when Kafka is not available at the start
+                ready?: false,
+                timer_ref: nil,
+                partitions_count: nil
+              ]
 
   @spec add_events(t(), [Utils.event()]) :: {:ok, t()} | {:error, term(), t()}
   def add_events(%State{} = state, events) do
@@ -49,7 +53,7 @@ defmodule KafkaBatcher.Collector.State do
     |> Enum.reduce(:ok, fn %MessageObject{} = event, result ->
       case choose_partition(state, event) do
         {:ok, partition} when result == :ok ->
-          try_to_add_event(event, state.topic_name, partition)
+          try_to_add_event(state, event, partition)
 
         {:ok, partition} ->
           keep_failed_event(result, event, elem(result, 1), partition)
@@ -60,8 +64,10 @@ defmodule KafkaBatcher.Collector.State do
     end)
   end
 
-  defp try_to_add_event(event, topic_name, partition) do
-    case Accumulator.add_event(event, topic_name, partition) do
+  defp try_to_add_event(%State{} = state, event, partition) do
+    pipeline_unit = PipelineUnit.set_partition(state.pipeline_unit, partition)
+
+    case Accumulator.add_event(event, pipeline_unit) do
       :ok -> :ok
       {:error, reason} -> keep_failed_event(:ok, event, reason, partition)
     end
@@ -84,17 +90,16 @@ defmodule KafkaBatcher.Collector.State do
     }
   end
 
-  defp choose_partition(%State{collect_by_partition: true} = state, event) do
-    Collector.Implementation.choose_partition(
-      event,
-      state.topic_name,
-      state.config,
-      state.partitions_count
-    )
-  end
-
-  defp choose_partition(%State{collect_by_partition: false}, _event) do
-    {:ok, nil}
+  defp choose_partition(%State{} = state, event) do
+    if PipelineUnit.collect_by_partition?(state.pipeline_unit) do
+      Collector.Implementation.choose_partition(
+        event,
+        state.pipeline_unit,
+        state.partitions_count
+      )
+    else
+      {:ok, nil}
+    end
   end
 
   defp save_failed_events(:ok, _state), do: :ok
@@ -103,12 +108,14 @@ defmodule KafkaBatcher.Collector.State do
          {:error, _reason, failed_event_batches} = result,
          %State{} = state
        ) do
+    %State{pipeline_unit: %PipelineUnit{} = pipeline_unit} = state
+
     for {partition, failed_events} <- failed_event_batches do
       TempStorage.save_batch(%TempStorage.Batch{
         messages: Enum.reverse(failed_events),
-        topic: state.topic_name,
+        topic: PipelineUnit.get_topic_name(pipeline_unit),
         partition: partition,
-        producer_config: state.config
+        producer_config: pipeline_unit.opts
       })
     end
 

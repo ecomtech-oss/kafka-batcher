@@ -9,10 +9,17 @@ defmodule KafkaBatcher.ConnectionManager do
 
   defmodule State do
     @moduledoc "State of ConnectionManager process"
-    defstruct client_started: false, client_pid: nil
+    @type t :: %State{
+            config: KafkaBatcher.Config.t(),
+            client_started: boolean(),
+            client_pid: nil | pid()
+          }
 
-    @type t :: %State{client_started: boolean(), client_pid: nil | pid()}
+    @enforce_keys [:config]
+    defstruct @enforce_keys ++ [client_started: false, client_pid: nil]
   end
+
+  alias KafkaBatcher.Producers
 
   @producer Application.compile_env(:kafka_batcher, :producer_module, KafkaBatcher.Producers.Kaffe)
   @error_notifier Application.compile_env(:kafka_batcher, :error_notifier, KafkaBatcher.DefaultErrorNotifier)
@@ -21,25 +28,29 @@ defmodule KafkaBatcher.ConnectionManager do
   use GenServer
 
   # Public API
-  @spec start_link() :: :ignore | {:error, any()} | {:ok, pid()}
-  def start_link do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  @spec start_link(KafkaBatcher.Config.t()) :: GenServer.on_start()
+  def start_link(%KafkaBatcher.Config{} = config) do
+    GenServer.start_link(
+      __MODULE__,
+      [config],
+      name: reg_name(config.producer_config)
+    )
   end
 
   @doc "Returns a specification to start this module under a supervisor"
-  @spec child_spec(nil) :: map()
-  def child_spec(_ \\ nil) do
+  @spec child_spec(KafkaBatcher.Config.t()) :: Supervisor.child_spec()
+  def child_spec(%KafkaBatcher.Config{} = config) do
     %{
-      id: __MODULE__,
-      start: {__MODULE__, :start_link, []},
+      id: reg_name(config.producer_config),
+      start: {__MODULE__, :start_link, [config]},
       type: :worker
     }
   end
 
   @doc "Checks that Kafka client is already started"
-  @spec client_started?() :: boolean()
-  def client_started? do
-    GenServer.call(__MODULE__, :client_started?)
+  @spec client_started?(Producers.Config.t()) :: boolean()
+  def client_started?(%Producers.Config{} = producer_config) do
+    GenServer.call(reg_name(producer_config), :client_started?)
   end
 
   ##
@@ -47,9 +58,9 @@ defmodule KafkaBatcher.ConnectionManager do
   ##
 
   @impl GenServer
-  def init(_opts) do
+  def init(config) do
     Process.flag(:trap_exit, true)
-    {:ok, %State{}, {:continue, :start_client}}
+    {:ok, %State{config: config}, {:continue, :start_client}}
   end
 
   @impl GenServer
@@ -110,7 +121,7 @@ defmodule KafkaBatcher.ConnectionManager do
   ##
 
   defp connect(state) do
-    case prepare_connection() do
+    case prepare_connection(state) do
       {:ok, pid} ->
         %State{state | client_started: true, client_pid: pid}
 
@@ -120,29 +131,33 @@ defmodule KafkaBatcher.ConnectionManager do
     end
   end
 
-  defp start_producers do
-    KafkaBatcher.Config.get_configs_by_topic_name()
-    |> Enum.reduce_while(:ok, fn {topic_name, config}, _ ->
-      case @producer.start_producer(topic_name, config) do
-        :ok ->
-          {:cont, :ok}
+  defp start_producers(%State{config: %KafkaBatcher.Config{} = config}) do
+    config.pipeline_units
+    |> Enum.map(&KafkaBatcher.PipelineUnit.get_topic_name/1)
+    |> Enum.reduce_while(
+      :ok,
+      fn topic_name, _ ->
+        case @producer.start_producer(config.producer_config, topic_name) do
+          :ok ->
+            {:cont, :ok}
 
-        {:error, reason} ->
-          @error_notifier.report(
-            type: "KafkaBatcherProducerStartFailed",
-            message: "Topic: #{topic_name}. Reason #{inspect(reason)}"
-          )
+          {:error, reason} ->
+            @error_notifier.report(
+              type: "KafkaBatcherProducerStartFailed",
+              message: "Topic: #{topic_name}. Reason #{inspect(reason)}"
+            )
 
-          {:halt, :error}
+            {:halt, :error}
+        end
       end
-    end)
+    )
   end
 
-  defp prepare_connection do
-    case start_client() do
-      {:ok, pid} ->
-        case start_producers() do
-          :ok -> {:ok, pid}
+  defp prepare_connection(state) do
+    case start_client(state) do
+      {:ok, _pid} = ok ->
+        case start_producers(state) do
+          :ok -> ok
           :error -> :retry
         end
 
@@ -156,10 +171,14 @@ defmodule KafkaBatcher.ConnectionManager do
     end
   end
 
-  defp start_client do
-    case @producer.start_client() do
-      {:ok, pid} ->
-        {:ok, pid}
+  defp start_client(%State{} = state) do
+    %KafkaBatcher.Config{
+      producer_config: producer_config
+    } = state.config
+
+    case @producer.start_client(producer_config) do
+      {:ok, _pid} = ok ->
+        ok
 
       {:error, {:already_started, pid}} ->
         Logger.debug("KafkaBatcher: Kafka client already started: #{inspect(pid)}")
@@ -168,5 +187,9 @@ defmodule KafkaBatcher.ConnectionManager do
       error ->
         error
     end
+  end
+
+  defp reg_name(%Producers.Config{} = producer_config) do
+    :"#{__MODULE__}.#{producer_config.client_name}"
   end
 end

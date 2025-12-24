@@ -26,7 +26,9 @@ defmodule KafkaBatcher.TempStorage do
     end
   end
 
-  defp recheck_and_update(%CollectorState{topic_name: topic, locked?: true} = state, now) do
+  defp recheck_and_update(%CollectorState{locked?: true} = state, now) do
+    topic = KafkaBatcher.PipelineUnit.get_topic_name(state.pipeline_unit)
+
     if @storage_impl.empty?(topic) do
       %CollectorState{state | locked?: false, last_check_timestamp: nil}
     else

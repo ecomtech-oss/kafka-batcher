@@ -43,24 +43,31 @@ defmodule KafkaBatcher.Collector do
     quote location: :keep, bind_quoted: [opts: opts] do
       use GenServer
       require Logger
-      alias KafkaBatcher.{AccumulatorsPoolSupervisor, Collector.State, TempStorage}
+
+      alias KafkaBatcher.{
+        AccumulatorsPoolSupervisor,
+        Collector,
+        Collector.State,
+        TempStorage
+      }
 
       @behaviour KafkaBatcher.Behaviours.Collector
       import KafkaBatcher.Collector.Implementation
 
       @error_notifier Application.compile_env(:kafka_batcher, :error_notifier, KafkaBatcher.DefaultErrorNotifier)
-      @compile_config KafkaBatcher.Config.build_topic_config(opts)
+      @compile_opts opts
 
       # Public API
-      def start_link(args) do
-        GenServer.start_link(__MODULE__, args, name: __MODULE__)
+      @spec start_link(KafkaBatcher.PipelineUnit.t()) :: GenServer.on_start()
+      def start_link(%KafkaBatcher.PipelineUnit{} = unit) do
+        GenServer.start_link(__MODULE__, unit, name: __MODULE__)
       end
 
       @doc "Returns a specification to start this module under a supervisor"
-      def child_spec(config) do
+      def child_spec(%KafkaBatcher.PipelineUnit{} = unit) do
         %{
           id: __MODULE__,
-          start: {__MODULE__, :start_link, [config]},
+          start: {__MODULE__, :start_link, [unit]},
           type: :worker
         }
       end
@@ -90,20 +97,21 @@ defmodule KafkaBatcher.Collector do
         GenServer.call(__MODULE__, :get_config)
       end
 
-      def get_compile_config do
-        @compile_config
+      def get_compile_opts do
+        @compile_opts
       end
 
       # Callbacks
       @impl GenServer
-      def init(config) do
+      def init(%KafkaBatcher.PipelineUnit{} = pipeline_unit) do
         Process.flag(:trap_exit, true)
 
-        state = build_state(config)
+        topic_name = KafkaBatcher.PipelineUnit.get_topic_name(pipeline_unit)
 
-        Logger.debug("KafkaBatcher: Batch collector started: topic #{state.topic_name} pid #{inspect(self())}")
+        Logger.debug("KafkaBatcher: Batch collector started: topic #{topic_name} pid #{inspect(self())}")
         send(self(), :init_accumulators)
-        {:ok, state}
+
+        {:ok, %State{pipeline_unit: pipeline_unit}}
       end
 
       @impl GenServer
@@ -131,8 +139,8 @@ defmodule KafkaBatcher.Collector do
         end
       end
 
-      def handle_call(:get_config, _from, state) do
-        {:reply, state.config, state}
+      def handle_call(:get_config, _from, %State{} = state) do
+        {:reply, state.pipeline_unit, state}
       end
 
       def handle_call(unknown, _from, state) do
@@ -144,7 +152,7 @@ defmodule KafkaBatcher.Collector do
 
       @impl GenServer
       def handle_info(:init_accumulators, state) do
-        new_state = store_partitions_count(state)
+        new_state = store_partition_count(state)
 
         case start_accumulators(new_state) do
           :ok ->
@@ -175,24 +183,17 @@ defmodule KafkaBatcher.Collector do
       end
 
       @impl GenServer
-      def format_status(_reason, [pdict, state]) do
-        [pdict, drop_sensitive(state)]
-      end
-
-      defp drop_sensitive(%State{config: config} = state) do
-        %State{state | config: Keyword.drop(config, [:sasl])}
+      def format_status(_reason, [pdict, %State{} = state]) do
+        [
+          pdict,
+          %State{
+            state
+            | pipeline_unit: PipelineUnit.drop_sensitive(state.pipeline_unit)
+          }
+        ]
       end
 
       # Private functions
-
-      defp build_state(config) do
-        %State{
-          topic_name: Keyword.fetch!(config, :topic_name),
-          config: config,
-          collect_by_partition: Keyword.fetch!(config, :collect_by_partition),
-          collector: __MODULE__
-        }
-      end
 
       defp restart_timer(%State{timer_ref: ref}) when :erlang.is_reference(ref) do
         _ = :erlang.cancel_timer(ref)

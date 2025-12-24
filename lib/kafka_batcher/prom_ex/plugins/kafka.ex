@@ -59,19 +59,37 @@ if Code.ensure_loaded?(PromEx) do
     ]
 
     @impl true
-    def event_metrics(_opts) do
-      metric_prefix = [:prom_ex, :kafka]
+    def event_metrics(opts) do
+      %KafkaBatcher.Config{} =
+        config =
+        Keyword.get_lazy(opts, :kafka_batcher_config, fn ->
+          :kafka_batcher
+          |> Application.get_all_env()
+          |> KafkaBatcher.Config.build_config!()
+        end)
+
+      metric_prefix =
+        [:prom_ex, :kafka, KafkaBatcher.Config.get_client_name(config)]
 
       labels = %{}
-      buckets = Application.get_env(:kafka_batcher, :kafka_metric_opts, [])
 
       [
-        producer_event_metrics(metric_prefix, labels, buckets),
-        consumer_event_metrics(metric_prefix, labels, buckets)
+        producer_event_metrics(
+          metric_prefix,
+          labels,
+          config.kafka_metric_opts,
+          config.kafka_topic_aliases
+        ),
+        consumer_event_metrics(
+          metric_prefix,
+          labels,
+          config.kafka_metric_opts,
+          config.kafka_topic_aliases
+        )
       ]
     end
 
-    def producer_event_metrics(metric_prefix, labels, buckets) do
+    def producer_event_metrics(metric_prefix, labels, buckets, aliases) do
       producer_metrics_tags = Map.keys(labels) ++ [:topic, :partition, :topic_alias]
       buckets = Keyword.get(buckets, :producer_buckets, @default_producer_buckets)
 
@@ -83,12 +101,13 @@ if Code.ensure_loaded?(PromEx) do
           labels,
           :producer,
           @producer_event_metrics,
-          buckets
+          buckets,
+          aliases
         )
       )
     end
 
-    def consumer_event_metrics(metric_prefix, labels, buckets) do
+    def consumer_event_metrics(metric_prefix, labels, buckets, aliases) do
       consumer_metrics_tags = Map.keys(labels) ++ [:topic, :partition, :topic_alias]
       buckets = Keyword.get(buckets, :consumer_buckets, @default_consumer_buckets)
 
@@ -100,14 +119,13 @@ if Code.ensure_loaded?(PromEx) do
           labels,
           :consumer,
           @consumer_event_metrics,
-          buckets
+          buckets,
+          aliases
         )
       )
     end
 
-    defp build_kafka_metrics(metric_prefix, metrics_tags, labels, name, event_name, buckets) do
-      aliases = Application.get_env(:kafka_batcher, :kafka_topic_aliases, %{})
-
+    defp build_kafka_metrics(metric_prefix, metrics_tags, labels, name, event_name, buckets, aliases) do
       [
         distribution(
           metric_prefix ++ [name, :duration, :seconds],

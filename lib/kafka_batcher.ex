@@ -67,6 +67,8 @@ defmodule KafkaBatcher do
     """
     defstruct key: "", value: "", headers: []
 
-    @type t :: %MessageObject{key: binary(), value: map() | binary(), headers: list()}
+    @type key :: binary()
+    @type value :: map() | binary()
+    @type t :: %MessageObject{key: key(), value: value(), headers: list()}
   end
 end

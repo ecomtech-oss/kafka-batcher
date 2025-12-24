@@ -5,7 +5,15 @@ defmodule KafkaBatcher.Accumulator do
   See details how it works in KafkaBatcher.Accumulator.State module
   """
 
-  alias KafkaBatcher.{Accumulator.State, MessageObject, TempStorage}
+  alias KafkaBatcher.{
+    Accumulator,
+    Accumulator.State,
+    MessageObject,
+    PipelineUnit,
+    Producers,
+    TempStorage
+  }
+
   alias KafkaBatcher.Behaviours.Collector, as: CollectorBehaviour
 
   @error_notifier Application.compile_env(:kafka_batcher, :error_notifier, KafkaBatcher.DefaultErrorNotifier)
@@ -14,25 +22,34 @@ defmodule KafkaBatcher.Accumulator do
   use GenServer
   require Logger
 
-  def start_link(args) do
-    GenServer.start_link(__MODULE__, args, name: reg_name(args))
+  @spec start_link(PipelineUnit.t()) :: GenServer.on_start()
+  def start_link(%PipelineUnit{} = pipeline_unit) do
+    GenServer.start_link(
+      __MODULE__,
+      pipeline_unit,
+      name: reg_name(pipeline_unit)
+    )
   end
 
   @doc "Returns a specification to start this module under a supervisor"
-  def child_spec(args) do
-    {accumulator_mod, args} = Keyword.pop(args, :accumulator_mod, __MODULE__)
-
+  @spec child_spec(PipelineUnit.t()) :: Supervisor.child_spec()
+  def child_spec(%PipelineUnit{} = pipeline_unit) do
     %{
-      id: reg_name(args),
-      start: {accumulator_mod, :start_link, [args]}
+      id: reg_name(pipeline_unit),
+      start: {
+        PipelineUnit.get_accumulator_mod(pipeline_unit),
+        :start_link,
+        [pipeline_unit]
+      }
     }
   end
 
   @doc """
   Finds appropriate Accumulator process by topic & partition and dispatches `event` to it
   """
-  def add_event(%MessageObject{} = event, topic_name, partition \\ nil) do
-    GenServer.call(reg_name(topic_name: topic_name, partition: partition), {:add_event, event})
+  @spec add_event(MessageObject.t(), PipelineUnit.t()) :: :ok | {:error, term()}
+  def add_event(%MessageObject{} = event, %PipelineUnit{} = pipeline_unit) do
+    GenServer.call(reg_name(pipeline_unit), {:add_event, event})
   catch
     _, _reason ->
       Logger.warning("KafkaBatcher: Couldn't get through to accumulator")
@@ -43,15 +60,17 @@ defmodule KafkaBatcher.Accumulator do
   ## Callbacks
   ##
   @impl GenServer
-  def init(args) do
+  def init(%PipelineUnit{} = pipeline_unit) do
     Process.flag(:trap_exit, true)
-    state = build_state(args)
+
+    topic_name = PipelineUnit.get_topic_name(pipeline_unit)
+    partition = PipelineUnit.get_partition(pipeline_unit)
 
     Logger.debug("""
-      KafkaBatcher: Accumulator process started: topic #{state.topic_name} partition #{state.partition} pid #{inspect(self())}
+      KafkaBatcher: Accumulator process started: topic #{topic_name} partition #{partition} pid #{inspect(self())}
     """)
 
-    {:ok, state}
+    {:ok, %State{pipeline_unit: pipeline_unit}}
   end
 
   @impl GenServer
@@ -78,7 +97,7 @@ defmodule KafkaBatcher.Accumulator do
         {:noreply, new_state}
 
       {:error, _reason, new_state} ->
-        state.collector.set_lock()
+        PipelineUnit.get_collector(state.pipeline_unit).set_lock()
         {:noreply, new_state}
     end
   end
@@ -92,7 +111,7 @@ defmodule KafkaBatcher.Accumulator do
   def handle_info(term, state) do
     Logger.warning("""
       KafkaBatcher: Unknown message #{inspect(term)} to #{__MODULE__}.handle_info/2.
-      Current state: #{inspect(drop_sensitive(state))}
+      Current state: #{inspect(state)}
     """)
 
     {:noreply, state}
@@ -104,12 +123,14 @@ defmodule KafkaBatcher.Accumulator do
   end
 
   @impl GenServer
-  def format_status(_reason, [pdict, state]) do
-    [pdict, drop_sensitive(state)]
-  end
-
-  defp drop_sensitive(%State{config: config} = state) do
-    %State{state | config: Keyword.drop(config, [:sasl])}
+  def format_status(_reason, [pdict, %State{} = state]) do
+    [
+      pdict,
+      %State{
+        state
+        | pipeline_unit: PipelineUnit.drop_sensitive(state.pipeline_unit)
+      }
+    ]
   end
 
   defp cleanup(%{pending_messages: [], messages_to_produce: []}) do
@@ -122,7 +143,11 @@ defmodule KafkaBatcher.Accumulator do
   end
 
   defp set_cleanup_timer_if_not_exists(%State{cleanup_timer_ref: nil} = state) do
-    ref = :erlang.start_timer(state.max_wait_time, self(), :cleanup)
+    %PipelineUnit{
+      accumulator_config: %Accumulator.Config{max_wait_time: max_wait_time}
+    } = state.pipeline_unit
+
+    ref = :erlang.start_timer(max_wait_time, self(), :cleanup)
     %State{state | cleanup_timer_ref: ref}
   end
 
@@ -161,37 +186,26 @@ defmodule KafkaBatcher.Accumulator do
 
   @spec produce_list(messages :: [CollectorBehaviour.event()], state :: State.t()) :: :ok | {:error, any()}
   defp produce_list(messages, state) when is_list(messages) do
-    @producer.produce_list(messages, state.topic_name, state.partition, state.config)
+    @producer.produce_list(state.config, messages, state.topic_name, state.partition)
   catch
     _, reason ->
       {:error, reason}
   end
 
-  defp build_state(args) do
-    config = Keyword.fetch!(args, :config)
+  defp reg_name(%PipelineUnit{} = pipeline_unit) do
+    %PipelineUnit{
+      producer_config: %Producers.Config{client_name: client_name}
+    } = pipeline_unit
 
-    %State{
-      topic_name: Keyword.fetch!(args, :topic_name),
-      partition: Keyword.get(args, :partition),
-      config: config,
-      batch_flusher: Keyword.fetch!(config, :batch_flusher),
-      batch_size: Keyword.fetch!(config, :batch_size),
-      max_wait_time: Keyword.fetch!(config, :max_wait_time),
-      min_delay: Keyword.fetch!(config, :min_delay),
-      max_batch_bytesize: Keyword.fetch!(config, :max_batch_bytesize),
-      collector: Keyword.fetch!(args, :collector)
-    }
-  end
+    topic_name = PipelineUnit.get_topic_name(pipeline_unit)
+    partition = PipelineUnit.get_partition(pipeline_unit)
 
-  defp reg_name(args) do
-    topic_name = Keyword.fetch!(args, :topic_name)
-
-    case Keyword.get(args, :partition) do
+    case partition do
       nil ->
-        :"#{__MODULE__}.#{topic_name}"
+        :"#{__MODULE__}.#{client_name}.#{topic_name}"
 
       partition ->
-        :"#{__MODULE__}.#{topic_name}.#{partition}"
+        :"#{__MODULE__}.#{client_name}.#{topic_name}.#{partition}"
     end
   end
 end
