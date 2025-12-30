@@ -39,7 +39,7 @@ defmodule KafkaBatcher.Supervisor do
     children =
       [
         KafkaBatcher.ConnectionManager.child_spec(config)
-        | build_pipeline_unit_specs(config.pipeline_units)
+        | build_data_stream_specs(config.data_stream_specs)
       ]
       |> Enum.reverse()
 
@@ -47,16 +47,16 @@ defmodule KafkaBatcher.Supervisor do
     Supervisor.init(children, opts)
   end
 
-  defp build_pipeline_unit_specs(units) do
-    for %KafkaBatcher.PipelineUnit{} = unit <- units, reduce: [] do
+  defp build_data_stream_specs(specs) do
+    for %KafkaBatcher.DataStreamSpec{} = spec <- specs, reduce: [] do
       specs ->
-        %KafkaBatcher.PipelineUnit{
+        %KafkaBatcher.DataStreamSpec{
           collector_config: %Collector.Config{collector: collector}
-        } = unit
+        } = spec
 
         [
-          collector.child_spec(unit),
-          AccumulatorsPoolSupervisor.child_spec(unit)
+          collector.child_spec(spec),
+          AccumulatorsPoolSupervisor.child_spec(spec)
           | specs
         ]
     end

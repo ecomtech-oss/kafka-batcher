@@ -8,8 +8,8 @@ defmodule KafkaBatcher.Accumulator do
   alias KafkaBatcher.{
     Accumulator,
     Accumulator.State,
+    DataStreamSpec,
     MessageObject,
-    PipelineUnit,
     Producers,
     TempStorage
   }
@@ -22,24 +22,24 @@ defmodule KafkaBatcher.Accumulator do
   use GenServer
   require Logger
 
-  @spec start_link(PipelineUnit.t()) :: GenServer.on_start()
-  def start_link(%PipelineUnit{} = pipeline_unit) do
+  @spec start_link(DataStreamSpec.t()) :: GenServer.on_start()
+  def start_link(%DataStreamSpec{} = data_stream_spec) do
     GenServer.start_link(
       __MODULE__,
-      pipeline_unit,
-      name: reg_name(pipeline_unit)
+      data_stream_spec,
+      name: reg_name(data_stream_spec)
     )
   end
 
   @doc "Returns a specification to start this module under a supervisor"
-  @spec child_spec(PipelineUnit.t()) :: Supervisor.child_spec()
-  def child_spec(%PipelineUnit{} = pipeline_unit) do
+  @spec child_spec(DataStreamSpec.t()) :: Supervisor.child_spec()
+  def child_spec(%DataStreamSpec{} = data_stream_spec) do
     %{
-      id: reg_name(pipeline_unit),
+      id: reg_name(data_stream_spec),
       start: {
-        PipelineUnit.get_accumulator_mod(pipeline_unit),
+        DataStreamSpec.get_accumulator_mod(data_stream_spec),
         :start_link,
-        [pipeline_unit]
+        [data_stream_spec]
       }
     }
   end
@@ -47,9 +47,9 @@ defmodule KafkaBatcher.Accumulator do
   @doc """
   Finds appropriate Accumulator process by topic & partition and dispatches `event` to it
   """
-  @spec add_event(MessageObject.t(), PipelineUnit.t()) :: :ok | {:error, term()}
-  def add_event(%MessageObject{} = event, %PipelineUnit{} = pipeline_unit) do
-    GenServer.call(reg_name(pipeline_unit), {:add_event, event})
+  @spec add_event(MessageObject.t(), DataStreamSpec.t()) :: :ok | {:error, term()}
+  def add_event(%MessageObject{} = event, %DataStreamSpec{} = data_stream_spec) do
+    GenServer.call(reg_name(data_stream_spec), {:add_event, event})
   catch
     _, _reason ->
       Logger.warning("KafkaBatcher: Couldn't get through to accumulator")
@@ -60,17 +60,17 @@ defmodule KafkaBatcher.Accumulator do
   ## Callbacks
   ##
   @impl GenServer
-  def init(%PipelineUnit{} = pipeline_unit) do
+  def init(%DataStreamSpec{} = data_stream_spec) do
     Process.flag(:trap_exit, true)
 
-    topic_name = PipelineUnit.get_topic_name(pipeline_unit)
-    partition = PipelineUnit.get_partition(pipeline_unit)
+    topic_name = DataStreamSpec.get_topic_name(data_stream_spec)
+    partition = DataStreamSpec.get_partition(data_stream_spec)
 
     Logger.debug("""
       KafkaBatcher: Accumulator process started: topic #{topic_name} partition #{partition} pid #{inspect(self())}
     """)
 
-    {:ok, %State{pipeline_unit: pipeline_unit}}
+    {:ok, %State{data_stream_spec: data_stream_spec}}
   end
 
   @impl GenServer
@@ -97,7 +97,7 @@ defmodule KafkaBatcher.Accumulator do
         {:noreply, new_state}
 
       {:error, _reason, new_state} ->
-        PipelineUnit.get_collector(state.pipeline_unit).set_lock()
+        DataStreamSpec.get_collector(state.data_stream_spec).set_lock()
         {:noreply, new_state}
     end
   end
@@ -128,7 +128,7 @@ defmodule KafkaBatcher.Accumulator do
       pdict,
       %State{
         state
-        | pipeline_unit: PipelineUnit.drop_sensitive(state.pipeline_unit)
+        | data_stream_spec: DataStreamSpec.drop_sensitive(state.data_stream_spec)
       }
     ]
   end
@@ -143,9 +143,9 @@ defmodule KafkaBatcher.Accumulator do
   end
 
   defp set_cleanup_timer_if_not_exists(%State{cleanup_timer_ref: nil} = state) do
-    %PipelineUnit{
+    %DataStreamSpec{
       accumulator_config: %Accumulator.Config{max_wait_time: max_wait_time}
-    } = state.pipeline_unit
+    } = state.data_stream_spec
 
     ref = :erlang.start_timer(max_wait_time, self(), :cleanup)
     %State{state | cleanup_timer_ref: ref}
@@ -192,13 +192,13 @@ defmodule KafkaBatcher.Accumulator do
       {:error, reason}
   end
 
-  defp reg_name(%PipelineUnit{} = pipeline_unit) do
-    %PipelineUnit{
+  defp reg_name(%DataStreamSpec{} = data_stream_spec) do
+    %DataStreamSpec{
       producer_config: %Producers.Config{client_name: client_name}
-    } = pipeline_unit
+    } = data_stream_spec
 
-    topic_name = PipelineUnit.get_topic_name(pipeline_unit)
-    partition = PipelineUnit.get_partition(pipeline_unit)
+    topic_name = DataStreamSpec.get_topic_name(data_stream_spec)
+    partition = DataStreamSpec.get_partition(data_stream_spec)
 
     case partition do
       nil ->

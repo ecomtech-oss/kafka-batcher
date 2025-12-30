@@ -14,14 +14,14 @@ defmodule KafkaBatcher.Accumulator.State do
   alias KafkaBatcher.{
     Accumulator,
     Accumulator.State,
-    MessageObject,
-    PipelineUnit
+    DataStreamSpec,
+    MessageObject
   }
 
   @error_notifier Application.compile_env(:kafka_batcher, :error_notifier, KafkaBatcher.DefaultErrorNotifier)
 
   @type t :: %State{
-          pipeline_unit: KafkaBatcher.PipelineUnit.t(),
+          data_stream_spec: KafkaBatcher.DataStreamSpec.t(),
           pending_messages: list(),
           last_produced_at: non_neg_integer(),
           batch_bytesize: non_neg_integer(),
@@ -31,7 +31,7 @@ defmodule KafkaBatcher.Accumulator.State do
           status: atom()
         }
 
-  @enforce_keys [:pipeline_unit]
+  @enforce_keys [:data_stream_spec]
   defstruct @enforce_keys ++
               [
                 pending_messages: [],
@@ -79,12 +79,12 @@ defmodule KafkaBatcher.Accumulator.State do
   end
 
   defp consider_max_bytesize(%State{status: :continue, batch_bytesize: batch_bytesize} = state, new_message) do
-    %PipelineUnit{
+    %DataStreamSpec{
       accumulator_config: %Accumulator.Config{max_batch_bytesize: max_batch_bytesize}
-    } = state.pipeline_unit
+    } = state.data_stream_spec
 
-    topic_name = PipelineUnit.get_topic_name(state.pipeline_unit)
-    partition = PipelineUnit.get_partition(state.pipeline_unit)
+    topic_name = DataStreamSpec.get_topic_name(state.data_stream_spec)
+    partition = DataStreamSpec.get_partition(state.data_stream_spec)
 
     message_size = :erlang.external_size(new_message)
 
@@ -109,9 +109,9 @@ defmodule KafkaBatcher.Accumulator.State do
   end
 
   defp consider_max_size_and_wait_time(%State{status: :continue} = state, now) do
-    %PipelineUnit{
+    %DataStreamSpec{
       accumulator_config: %Accumulator.Config{batch_size: batch_size, min_delay: min_delay}
-    } = state.pipeline_unit
+    } = state.data_stream_spec
 
     if state.pending_messages_count >= batch_size and now - state.last_produced_at >= min_delay do
       mark_as_ready(state)
@@ -123,9 +123,9 @@ defmodule KafkaBatcher.Accumulator.State do
   defp consider_max_size_and_wait_time(%State{status: :ready} = state, _), do: state
 
   defp consider_istant_flush(%State{status: :continue} = state, key, value) do
-    %PipelineUnit{
+    %DataStreamSpec{
       accumulator_config: %Accumulator.Config{batch_flusher: batch_flusher}
-    } = state.pipeline_unit
+    } = state.data_stream_spec
 
     if batch_flusher.flush?(key, value) do
       mark_as_ready(state)

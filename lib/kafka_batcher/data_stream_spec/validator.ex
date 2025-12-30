@@ -1,11 +1,11 @@
-defmodule KafkaBatcher.PipelineUnit.Validator do
+defmodule KafkaBatcher.DataStreamSpec.Validator do
   @moduledoc false
 
-  alias KafkaBatcher.{Collector, PipelineUnit, Producers}
+  alias KafkaBatcher.{Collector, DataStreamSpec, Producers}
 
-  @spec validate(PipelineUnit.t()) :: :ok | {:error, String.t()}
-  def validate(%PipelineUnit{} = pipeline_unit) do
-    %PipelineUnit{
+  @spec validate(DataStreamSpec.t()) :: :ok | {:error, String.t()}
+  def validate(%DataStreamSpec{} = data_stream_spec) do
+    %DataStreamSpec{
       collector_config: %Collector.Config{
         collector: collector,
         partition_fn: partition_fn,
@@ -14,7 +14,7 @@ defmodule KafkaBatcher.PipelineUnit.Validator do
       producer_config: %Producers.Config{
         partition_strategy: partition_strategy
       }
-    } = pipeline_unit
+    } = data_stream_spec
 
     cond do
       collect_by_partition and is_nil(partition_fn) ->

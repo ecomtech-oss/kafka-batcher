@@ -48,6 +48,7 @@ defmodule KafkaBatcher.Collector do
         AccumulatorsPoolSupervisor,
         Collector,
         Collector.State,
+        DataStreamSpec,
         TempStorage
       }
 
@@ -58,16 +59,16 @@ defmodule KafkaBatcher.Collector do
       @compile_opts opts
 
       # Public API
-      @spec start_link(KafkaBatcher.PipelineUnit.t()) :: GenServer.on_start()
-      def start_link(%KafkaBatcher.PipelineUnit{} = unit) do
-        GenServer.start_link(__MODULE__, unit, name: __MODULE__)
+      @spec start_link(DataStreamSpec.t()) :: GenServer.on_start()
+      def start_link(%DataStreamSpec{} = spec) do
+        GenServer.start_link(__MODULE__, spec, name: __MODULE__)
       end
 
       @doc "Returns a specification to start this module under a supervisor"
-      def child_spec(%KafkaBatcher.PipelineUnit{} = unit) do
+      def child_spec(%DataStreamSpec{} = spec) do
         %{
           id: __MODULE__,
-          start: {__MODULE__, :start_link, [unit]},
+          start: {__MODULE__, :start_link, [spec]},
           type: :worker
         }
       end
@@ -103,15 +104,15 @@ defmodule KafkaBatcher.Collector do
 
       # Callbacks
       @impl GenServer
-      def init(%KafkaBatcher.PipelineUnit{} = pipeline_unit) do
+      def init(%DataStreamSpec{} = data_stream_spec) do
         Process.flag(:trap_exit, true)
 
-        topic_name = KafkaBatcher.PipelineUnit.get_topic_name(pipeline_unit)
+        topic_name = DataStreamSpec.get_topic_name(data_stream_spec)
 
         Logger.debug("KafkaBatcher: Batch collector started: topic #{topic_name} pid #{inspect(self())}")
         send(self(), :init_accumulators)
 
-        {:ok, %State{pipeline_unit: pipeline_unit}}
+        {:ok, %State{data_stream_spec: data_stream_spec}}
       end
 
       @impl GenServer
@@ -140,7 +141,7 @@ defmodule KafkaBatcher.Collector do
       end
 
       def handle_call(:get_config, _from, %State{} = state) do
-        {:reply, state.pipeline_unit, state}
+        {:reply, state.data_stream_spec, state}
       end
 
       def handle_call(unknown, _from, state) do
@@ -188,7 +189,7 @@ defmodule KafkaBatcher.Collector do
           pdict,
           %State{
             state
-            | pipeline_unit: PipelineUnit.drop_sensitive(state.pipeline_unit)
+            | data_stream_spec: DataStreamSpec.drop_sensitive(state.data_stream_spec)
           }
         ]
       end

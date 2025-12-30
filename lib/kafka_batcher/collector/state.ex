@@ -6,8 +6,8 @@ defmodule KafkaBatcher.Collector.State do
   alias KafkaBatcher.{
     Accumulator,
     Collector,
+    DataStreamSpec,
     MessageObject,
-    PipelineUnit,
     TempStorage
   }
 
@@ -16,7 +16,7 @@ defmodule KafkaBatcher.Collector.State do
   require Logger
 
   @type t :: %State{
-          pipeline_unit: PipelineUnit.t(),
+          data_stream_spec: DataStreamSpec.t(),
           locked?: boolean(),
           last_check_timestamp: non_neg_integer() | nil,
           ready?: boolean(),
@@ -24,7 +24,7 @@ defmodule KafkaBatcher.Collector.State do
           partitions_count: pos_integer() | nil
         }
 
-  @enforce_keys [:pipeline_unit]
+  @enforce_keys [:data_stream_spec]
   defstruct @enforce_keys ++
               [
                 # these fields are used to handle case when Kafka went down suddenly
@@ -65,9 +65,9 @@ defmodule KafkaBatcher.Collector.State do
   end
 
   defp try_to_add_event(%State{} = state, event, partition) do
-    pipeline_unit = PipelineUnit.set_partition(state.pipeline_unit, partition)
+    data_stream_spec = DataStreamSpec.set_partition(state.data_stream_spec, partition)
 
-    case Accumulator.add_event(event, pipeline_unit) do
+    case Accumulator.add_event(event, data_stream_spec) do
       :ok -> :ok
       {:error, reason} -> keep_failed_event(:ok, event, reason, partition)
     end
@@ -91,10 +91,10 @@ defmodule KafkaBatcher.Collector.State do
   end
 
   defp choose_partition(%State{} = state, event) do
-    if PipelineUnit.collect_by_partition?(state.pipeline_unit) do
+    if DataStreamSpec.collect_by_partition?(state.data_stream_spec) do
       Collector.Implementation.choose_partition(
         event,
-        state.pipeline_unit,
+        state.data_stream_spec,
         state.partitions_count
       )
     else
@@ -108,14 +108,14 @@ defmodule KafkaBatcher.Collector.State do
          {:error, _reason, failed_event_batches} = result,
          %State{} = state
        ) do
-    %State{pipeline_unit: %PipelineUnit{} = pipeline_unit} = state
+    %State{data_stream_spec: %DataStreamSpec{} = data_stream_spec} = state
 
     for {partition, failed_events} <- failed_event_batches do
       TempStorage.save_batch(%TempStorage.Batch{
         messages: Enum.reverse(failed_events),
-        topic: PipelineUnit.get_topic_name(pipeline_unit),
+        topic: DataStreamSpec.get_topic_name(data_stream_spec),
         partition: partition,
-        producer_config: pipeline_unit.opts
+        producer_config: data_stream_spec.opts
       })
     end
 

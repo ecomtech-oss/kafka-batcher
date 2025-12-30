@@ -24,20 +24,20 @@ defmodule KafkaBatcher.Config do
   alias KafkaBatcher.{
     Accumulator,
     Collector,
-    PipelineUnit.Validator,
+    DataStreamSpec.Validator,
     Producers
   }
 
   @type t :: %__MODULE__{
           producer_config: Producers.Config.t(),
-          pipeline_units: [KafkaBatcher.PipelineUnit.t()],
+          data_stream_specs: [KafkaBatcher.DataStreamSpec.t()],
           kafka_topic_aliases: %{optional(binary()) => binary()},
           kafka_metric_opts: Keyword.t()
         }
 
   @enforce_keys [
     :producer_config,
-    :pipeline_units,
+    :data_stream_specs,
     :kafka_topic_aliases,
     :kafka_metric_opts
   ]
@@ -59,22 +59,22 @@ defmodule KafkaBatcher.Config do
       |> Keyword.fetch!(:kafka)
       |> Producers.Config.build!()
 
-    pipeline_units =
+    data_stream_specs =
       for collector <- Keyword.fetch!(opts, :collectors) do
         producer_config
-        |> build_pipeline_unit!(collector, opts)
-        |> validate_pipeline_unit!()
+        |> build_data_stream_spec!(collector, opts)
+        |> validate_data_stream_spec!()
       end
 
     %__MODULE__{
       producer_config: producer_config,
-      pipeline_units: pipeline_units,
+      data_stream_specs: data_stream_specs,
       kafka_topic_aliases: Keyword.get(opts, :kafka_topic_aliases, %{}),
       kafka_metric_opts: Keyword.get(opts, :kafka_metric_opts, [])
     }
   end
 
-  defp build_pipeline_unit!(producer_config, collector, opts) do
+  defp build_data_stream_spec!(producer_config, collector, opts) do
     opts =
       opts
       |> Keyword.merge(get_compile_opts!(collector))
@@ -84,7 +84,7 @@ defmodule KafkaBatcher.Config do
     collector_config = Collector.Config.build!(opts)
     accumulator_config = Accumulator.Config.build!(opts)
 
-    %KafkaBatcher.PipelineUnit{
+    %KafkaBatcher.DataStreamSpec{
       collector_config: collector_config,
       accumulator_config: accumulator_config,
       producer_config: producer_config,
@@ -96,10 +96,10 @@ defmodule KafkaBatcher.Config do
     }
   end
 
-  defp validate_pipeline_unit!(pipeline_unit) do
-    case Validator.validate(pipeline_unit) do
+  defp validate_data_stream_spec!(data_stream_spec) do
+    case Validator.validate(data_stream_spec) do
       :ok ->
-        pipeline_unit
+        data_stream_spec
 
       {:error, reason} ->
         raise(BadConfigError, "Collector config failed: #{inspect(reason)}")

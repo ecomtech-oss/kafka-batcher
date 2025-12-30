@@ -5,33 +5,33 @@ defmodule KafkaBatcher.AccumulatorsPoolSupervisor do
 
   use DynamicSupervisor
 
-  alias KafkaBatcher.{Accumulator, PipelineUnit, Producers}
+  alias KafkaBatcher.{Accumulator, DataStreamSpec, Producers}
 
   @dialyzer {:no_return, {:init, 1}}
 
-  def start_link(%PipelineUnit{} = pipeline_unit) do
+  def start_link(%DataStreamSpec{} = data_stream_spec) do
     DynamicSupervisor.start_link(
       __MODULE__,
-      pipeline_unit,
-      name: reg_name(pipeline_unit)
+      data_stream_spec,
+      name: reg_name(data_stream_spec)
     )
   end
 
   @doc "Returns a specification to start this module under a supervisor"
-  def child_spec(%PipelineUnit{} = pipeline_unit) do
+  def child_spec(%DataStreamSpec{} = data_stream_spec) do
     %{
-      id: reg_name(pipeline_unit),
-      start: {__MODULE__, :start_link, [pipeline_unit]},
+      id: reg_name(data_stream_spec),
+      start: {__MODULE__, :start_link, [data_stream_spec]},
       type: :supervisor
     }
   end
 
-  def init(%PipelineUnit{} = pipeline_unit) do
-    %PipelineUnit{
+  def init(%DataStreamSpec{} = data_stream_spec) do
+    %DataStreamSpec{
       accumulator_config: %Accumulator.Config{
         max_accumulator_restarts: max_accumulator_restarts
       }
-    } = pipeline_unit
+    } = data_stream_spec
 
     # max_restarts value depends on partitions count in case when partitioned accumulation is used.
     # For example: 100 max_restarts -> 10 process restarts per second for 1 topic with 10 partitions
@@ -44,19 +44,19 @@ defmodule KafkaBatcher.AccumulatorsPoolSupervisor do
     )
   end
 
-  def start_accumulator(%PipelineUnit{} = pipeline_unit) do
+  def start_accumulator(%DataStreamSpec{} = data_stream_spec) do
     DynamicSupervisor.start_child(
-      reg_name(pipeline_unit),
-      Accumulator.child_spec(pipeline_unit)
+      reg_name(data_stream_spec),
+      Accumulator.child_spec(data_stream_spec)
     )
   end
 
-  def reg_name(%PipelineUnit{} = pipeline_unit) do
-    %PipelineUnit{
+  def reg_name(%DataStreamSpec{} = data_stream_spec) do
+    %DataStreamSpec{
       producer_config: %Producers.Config{client_name: client_name}
-    } = pipeline_unit
+    } = data_stream_spec
 
-    topic_name = PipelineUnit.get_topic_name(pipeline_unit)
+    topic_name = DataStreamSpec.get_topic_name(data_stream_spec)
 
     :"#{__MODULE__}.#{client_name}.#{topic_name}"
   end

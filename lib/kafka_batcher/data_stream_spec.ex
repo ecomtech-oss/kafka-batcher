@@ -1,4 +1,4 @@
-defmodule KafkaBatcher.PipelineUnit do
+defmodule KafkaBatcher.DataStreamSpec do
   @moduledoc false
 
   alias KafkaBatcher.{
@@ -29,69 +29,69 @@ defmodule KafkaBatcher.PipelineUnit do
   defstruct @enforce_keys
 
   @spec drop_sensitive(t()) :: t()
-  def drop_sensitive(%__MODULE__{} = pipeline_unit) do
+  def drop_sensitive(%__MODULE__{} = data_stream_spec) do
     %__MODULE__{
-      collector_config: pipeline_unit.collector_config,
-      accumulator_config: pipeline_unit.accumulator_config,
-      producer_config: Producers.Config.drop_sensitive(pipeline_unit.producer_config),
+      collector_config: data_stream_spec.collector_config,
+      accumulator_config: data_stream_spec.accumulator_config,
+      producer_config: Producers.Config.drop_sensitive(data_stream_spec.producer_config),
       opts: []
     }
   end
 
   @spec get_accumulator_mod(t()) :: module()
-  def get_accumulator_mod(%__MODULE__{} = pipeline_unit) do
+  def get_accumulator_mod(%__MODULE__{} = data_stream_spec) do
     %__MODULE__{
       accumulator_config: %Accumulator.Config{accumulator_mod: accumulator_mod}
-    } = pipeline_unit
+    } = data_stream_spec
 
     accumulator_mod
   end
 
   @spec get_partition(t()) :: pos_integer() | nil
-  def get_partition(%__MODULE__{} = pipeline_unit) do
+  def get_partition(%__MODULE__{} = data_stream_spec) do
     %__MODULE__{
       accumulator_config: %Accumulator.Config{partition: partition}
-    } = pipeline_unit
+    } = data_stream_spec
 
     partition
   end
 
   @spec set_partition(t(), pos_integer()) :: t()
-  def set_partition(%__MODULE__{} = pipeline_unit, partition) do
+  def set_partition(%__MODULE__{} = data_stream_spec, partition) do
     %__MODULE__{
-      pipeline_unit
+      data_stream_spec
       | accumulator_config: %Accumulator.Config{
-          pipeline_unit.accumulator_config
+          data_stream_spec.accumulator_config
           | partition: partition
         }
     }
   end
 
   @spec get_topic_name(t()) :: String.t()
-  def get_topic_name(%__MODULE__{} = pipeline_unit) do
+  def get_topic_name(%__MODULE__{} = data_stream_spec) do
     %__MODULE__{
       collector_config: %Collector.Config{topic_name: topic_name}
-    } = pipeline_unit
+    } = data_stream_spec
 
     topic_name
   end
 
   @spec get_collector(t()) :: module()
-  def get_collector(%__MODULE__{} = pipeline_unit) do
+  def get_collector(%__MODULE__{} = data_stream_spec) do
     %__MODULE__{
       collector_config: %Collector.Config{collector: collector}
-    } = pipeline_unit
+    } = data_stream_spec
 
     collector
   end
 
   @spec collect_by_partition?(t()) :: boolean()
-  def collect_by_partition?(%__MODULE__{} = pipeline_unit) do
+  def collect_by_partition?(%__MODULE__{} = data_stream_spec) do
     %__MODULE__{
       collector_config: %Collector.Config{
         collect_by_partition: collect_by_partition
       }
-    } = pipeline_unit
+    } = data_stream_spec
 
     collect_by_partition
   end

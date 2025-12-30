@@ -132,8 +132,8 @@ defmodule KafkaBatcher.ConnectionManager do
   end
 
   defp start_producers(%State{config: %KafkaBatcher.Config{} = config}) do
-    config.pipeline_units
-    |> Enum.map(&KafkaBatcher.PipelineUnit.get_topic_name/1)
+    config.data_stream_specs
+    |> Enum.map(&KafkaBatcher.DataStreamSpec.get_topic_name/1)
     |> Enum.reduce_while(
       :ok,
       fn topic_name, _ ->
