@@ -1,7 +1,9 @@
 defmodule KafkaBatcher.Producers.Config do
   @moduledoc false
 
-  alias KafkaBatcher.{MessageObject, Producers.Config.BrodConfig}
+  alias KafkaBatcher.Config.BadConfigError
+  alias KafkaBatcher.MessageObject
+  alias KafkaBatcher.Producers.Config.BrodConfig
 
   @typep topic :: String.t()
   @typep partition_count :: pos_integer()
@@ -53,19 +55,36 @@ defmodule KafkaBatcher.Producers.Config do
 
   @spec build!(opts :: Keyword.t()) :: t()
   def build!(opts) do
-    endpoints =
-      for url <- opts |> Keyword.fetch!(:endpoints) |> String.split(",") do
-        [host, port] = String.split(url, ":")
-        {host, :erlang.binary_to_integer(port)}
-      end
-
     %__MODULE__{
-      endpoints: endpoints,
+      endpoints: build_endpoints!(opts),
       client_name: Keyword.get(opts, :client_name, :kafka_producer_client),
       partition_strategy: Keyword.get(opts, :partition_strategy),
       required_acks: Keyword.get(opts, :required_acks, -1),
       telemetry: Keyword.get(opts, :telemetry, true),
       brod_config: BrodConfig.build!(opts)
     }
+  end
+
+  defp build_endpoints!(opts) do
+    case Keyword.fetch(opts, :endpoints) do
+      {:ok, endpoints} when is_binary(endpoints) ->
+        for url <- String.split(endpoints, ","), do: parse_endpoint!(url)
+
+      {:ok, endpoints} ->
+        raise(BadConfigError, "Producer config failed: non-string endpoints given #{inspect(endpoints)}")
+
+      :error ->
+        raise(BadConfigError, "Producer config failed: no endpoints given")
+    end
+  end
+
+  defp parse_endpoint!(endpoint) do
+    case URI.parse("//" <> endpoint) do
+      %URI{host: host, port: port} when not is_nil(host) and not is_nil(port) ->
+        {host, port}
+
+      _ ->
+        raise(BadConfigError, "Producer config failed: invalid endpoint url format #{inspect(endpoint)}")
+    end
   end
 end

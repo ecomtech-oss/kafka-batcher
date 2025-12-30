@@ -1,6 +1,7 @@
 defmodule KafkaBatcher.Collector.Config do
   @moduledoc false
 
+  alias KafkaBatcher.Config.BadConfigError
   alias KafkaBatcher.MessageObject
 
   @typep topic :: String.t()
@@ -40,5 +41,12 @@ defmodule KafkaBatcher.Collector.Config do
       :collect_by_partition
     ])
     |> then(&struct!(__MODULE__, &1))
+  rescue
+    ArgumentError ->
+      reraise(
+        BadConfigError,
+        "Accumulator config failed: missing required opts: #{inspect(@enforce_keys)}",
+        __STACKTRACE__
+      )
   end
 end

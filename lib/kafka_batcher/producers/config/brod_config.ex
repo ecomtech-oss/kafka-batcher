@@ -45,7 +45,7 @@ defmodule KafkaBatcher.Producers.Config.BrodConfig do
   @spec build!(Keyword.t()) :: t()
   def build!(opts) do
     sasl_config =
-      case validate_sasl_config(Keyword.get(opts, :sasl)) do
+      case build_sasl_config(Keyword.get(opts, :sasl)) do
         {:ok, sasl_config} ->
           sasl_config
 
@@ -62,30 +62,31 @@ defmodule KafkaBatcher.Producers.Config.BrodConfig do
     }
   end
 
-  @spec validate_sasl_config(map() | nil) ::
+  @spec build_sasl_config(map() | nil) ::
           {:ok, sasl()} | {:error, {:invalid, map()}}
-  defp validate_sasl_config(
+  defp build_sasl_config(
          %{
            mechanism: mechanism,
            login: login,
            password: password
          } = config
-       ) do
+       )
+       when is_binary(login) and is_binary(password) do
     mechanism_valid? = mechanism in [:plain, :scram_sha_256, :scram_sha_512]
 
-    if mechanism_valid? and password != nil and login != nil do
+    if mechanism_valid? and String.valid?(login) and String.valid?(password) do
       {:ok, {mechanism, login, password}}
     else
       {:error, {:invalid, config}}
     end
   end
 
-  defp validate_sasl_config(sasl_config)
+  defp build_sasl_config(sasl_config)
        when sasl_config == nil or sasl_config == %{} do
     {:ok, :undefined}
   end
 
-  defp validate_sasl_config(bad_sasl_config) do
+  defp build_sasl_config(bad_sasl_config) do
     {:error, {:invalid, bad_sasl_config}}
   end
 end

@@ -1,5 +1,6 @@
 defmodule KafkaBatcher.Accumulator.Config do
   @moduledoc false
+  alias KafkaBatcher.Config.BadConfigError
 
   @type t :: %__MODULE__{
           collector: module(),
@@ -58,5 +59,12 @@ defmodule KafkaBatcher.Accumulator.Config do
       :accumulator_mod
     ])
     |> then(&struct!(__MODULE__, &1))
+  rescue
+    ArgumentError ->
+      reraise(
+        BadConfigError,
+        "Accumulator config failed: missing required opts: #{inspect(@enforce_keys)}",
+        __STACKTRACE__
+      )
   end
 end

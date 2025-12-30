@@ -55,9 +55,7 @@ defmodule KafkaBatcher.Config do
   @spec build_config!(opts :: Keyword.t()) :: t()
   def build_config!(opts) do
     producer_config =
-      opts
-      |> Keyword.fetch!(:kafka)
-      |> Producers.Config.build!()
+      opts |> Keyword.get(:kafka, []) |> Producers.Config.build!()
 
     data_stream_specs =
       for collector <- Keyword.fetch!(opts, :collectors) do

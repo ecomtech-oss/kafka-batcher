@@ -19,7 +19,7 @@ defmodule KafkaBatcher.Collector.Implementation do
 
   def choose_partition(
         %MessageObject{key: key, value: value},
-        %KafkaBatcher.DataStreamSpec{} = data_stream_spec,
+        %DataStreamSpec{} = data_stream_spec,
         partitions_count
       ) do
     %Collector.Config{
