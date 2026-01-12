@@ -23,6 +23,8 @@ defmodule KafkaBatcher.Producers.Config do
           brod_config: BrodConfig.t()
         }
 
+  @default_client_name :kafka_producer_client
+
   @enforce_keys [
     :endpoints,
     :client_name,
@@ -53,11 +55,14 @@ defmodule KafkaBatcher.Producers.Config do
     }
   end
 
+  @spec default_client_name :: :kafka_producer_client
+  def default_client_name, do: @default_client_name
+
   @spec build!(opts :: Keyword.t()) :: t()
   def build!(opts) do
     %__MODULE__{
       endpoints: build_endpoints!(opts),
-      client_name: Keyword.get(opts, :client_name, :kafka_producer_client),
+      client_name: Keyword.get(opts, :client_name, @default_client_name),
       partition_strategy: Keyword.get(opts, :partition_strategy),
       required_acks: Keyword.get(opts, :required_acks, -1),
       telemetry: Keyword.get(opts, :telemetry, true),

@@ -48,9 +48,9 @@ defmodule KafkaBatcher.ConnectionManager do
   end
 
   @doc "Checks that Kafka client is already started"
-  @spec client_started?(Producers.Config.t()) :: boolean()
-  def client_started?(%Producers.Config{} = producer_config) do
-    GenServer.call(reg_name(producer_config), :client_started?)
+  @spec client_started?(client_name :: atom()) :: boolean()
+  def client_started?(client_name \\ Producers.Config.default_client_name()) do
+    GenServer.call(reg_name(client_name), :client_started?)
   end
 
   ##
@@ -190,6 +190,10 @@ defmodule KafkaBatcher.ConnectionManager do
   end
 
   defp reg_name(%Producers.Config{} = producer_config) do
-    :"#{__MODULE__}.#{producer_config.client_name}"
+    reg_name(producer_config.client_name)
+  end
+
+  defp reg_name(client_name) when is_atom(client_name) do
+    :"#{__MODULE__}.#{client_name}"
   end
 end
