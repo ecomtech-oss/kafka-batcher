@@ -4,42 +4,61 @@ defmodule KafkaBatcher.Collector.Implementation do
   """
 
   require Logger
-  alias KafkaBatcher.{AccumulatorsPoolSupervisor, Collector.State, MessageObject}
+
+  alias KafkaBatcher.{
+    AccumulatorsPoolSupervisor,
+    Collector,
+    Collector.State,
+    DataStreamSpec,
+    MessageObject
+  }
+
   @producer Application.compile_env(:kafka_batcher, :producer_module, KafkaBatcher.Producers.Kaffe)
 
-  def choose_partition(_message, _topic_name, _config, nil), do: {:error, :kafka_unavailable}
+  def choose_partition(_message, _data_stream_spec, nil), do: {:error, :kafka_unavailable}
 
-  def choose_partition(%MessageObject{key: key, value: value}, topic_name, config, partitions_count) do
-    calc_partition_fn = Keyword.fetch!(config, :partition_fn)
+  def choose_partition(
+        %MessageObject{key: key, value: value},
+        %DataStreamSpec{} = data_stream_spec,
+        partitions_count
+      ) do
+    %Collector.Config{
+      partition_fn: partition_fn,
+      topic_name: topic_name
+    } = data_stream_spec.collector_config
 
-    partition = calc_partition_fn.(topic_name, partitions_count, key, value)
+    partition = partition_fn.(topic_name, partitions_count, key, value)
+
     {:ok, partition}
   end
 
-  def start_accumulators(%State{collect_by_partition: true, partitions_count: nil}) do
-    {:error, :kafka_unavailable}
+  def start_accumulators(%State{} = state) do
+    collect_by_partition? =
+      DataStreamSpec.collect_by_partition?(state.data_stream_spec)
+
+    cond do
+      collect_by_partition? and is_nil(state.partitions_count) ->
+        {:error, :kafka_unavailable}
+
+      collect_by_partition? ->
+        start_accumulators_by_partitions(
+          state.data_stream_spec,
+          state.partitions_count
+        )
+
+      not collect_by_partition? ->
+        start_accumulator(state.data_stream_spec)
+    end
   end
 
-  def start_accumulators(%State{collect_by_partition: true, partitions_count: count} = state) do
-    start_accumulators_by_partitions(count, state)
-  end
-
-  def start_accumulators(%State{topic_name: topic_name, config: config, collect_by_partition: false} = state) do
-    start_accumulator(topic_name: topic_name, config: config, collector: state.collector)
-  end
-
-  defp start_accumulators_by_partitions(count, %State{} = state) do
-    opts = [
-      topic_name: state.topic_name,
-      config: state.config,
-      collector: state.collector
-    ]
-
+  defp start_accumulators_by_partitions(data_stream_spec, count) do
     Enum.reduce_while(
       0..(count - 1),
       :ok,
       fn partition, _ ->
-        case start_accumulator(Keyword.put(opts, :partition, partition)) do
+        data_stream_spec = DataStreamSpec.set_partition(data_stream_spec, partition)
+
+        case start_accumulator(data_stream_spec) do
           :ok ->
             {:cont, :ok}
 
@@ -50,8 +69,8 @@ defmodule KafkaBatcher.Collector.Implementation do
     )
   end
 
-  defp start_accumulator(args) do
-    case AccumulatorsPoolSupervisor.start_accumulator(args) do
+  defp start_accumulator(data_stream_spec) do
+    case AccumulatorsPoolSupervisor.start_accumulator(data_stream_spec) do
       {:ok, _} ->
         :ok
 
@@ -60,7 +79,7 @@ defmodule KafkaBatcher.Collector.Implementation do
 
       {:error, reason} ->
         Logger.warning("""
-          KafkaBatcher: Accumulator has failed to start with args: #{inspect(args)}.
+          KafkaBatcher: Accumulator has failed to start with args: #{inspect(data_stream_spec)}.
           Reason: #{inspect(reason)}}
         """)
 
@@ -69,8 +88,15 @@ defmodule KafkaBatcher.Collector.Implementation do
   end
 
   @spec store_partition_count(State.t()) :: State.t()
-  def store_partitions_count(%State{partitions_count: nil} = state) do
-    case @producer.get_partitions_count(state.topic_name) do
+  def store_partition_count(%State{partitions_count: nil} = state) do
+    %State{
+      data_stream_spec: %DataStreamSpec{
+        collector_config: %Collector.Config{topic_name: topic_name},
+        producer_config: producer_config
+      }
+    } = state
+
+    case @producer.get_partitions_count(producer_config, topic_name) do
       {:ok, partitions_count} ->
         %State{state | partitions_count: partitions_count}
 

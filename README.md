@@ -23,7 +23,7 @@ A library to increase the throughput of producing messages (coming one at a time
     def start(_type, _args) do
       children = [
         # Describe the child spec
-        KafkaBatcher.Supervisor
+        {KafkaBatcher.Supervisor, Application.fetch_env!(:kafka_batcher, :default_client)}
       ]
 
       opts = [strategy: :one_for_one, name: MyApp.Supervisor, max_restarts: 3, max_seconds: 5]
@@ -36,32 +36,36 @@ A library to increase the throughput of producing messages (coming one at a time
   Config example:
 
   ```elixir
-  config :kafka_batcher, KafkaBatcher.Collector1, topic_name: "topic1"
-  config :kafka_batcher, KafkaBatcher.Collector2, topic_name: "topic2"
-  config :kafka_batcher, KafkaBatcher.Collector3, topic_name: "topic3"
-  config :kafka_batcher, KafkaBatcher.Collector4, topic_name: "topic4"
-  config :kafka_batcher, KafkaBatcher.Collector5, topic_name: "topic5"
-
-  config :kafka_batcher, collectors:
-          [
-            KafkaBatcher.Collector1,
-            KafkaBatcher.Collector2,
-            KafkaBatcher.Collector3,
-            KafkaBatcher.Collector4,
-            KafkaBatcher.Collector5
-          ]
+  config :kafka_batcher, :default_client, [
+    {KafkaBatcher.Collector1, [topic_name: "topic1"]},
+    {KafkaBatcher.Collector2, [topic_name: "topic2"]},
+    {KafkaBatcher.Collector3, [topic_name: "topic3"]},
+    {KafkaBatcher.Collector4, [topic_name: "topic4"]},
+    {KafkaBatcher.Collector5, [topic_name: "topic5"]}  
+  ]
           
-  config :kafka_batcher, :kafka,
-    endpoints: "localhost:9092",
-    # in case you use SASL
-    # sasl: %{mechanism: :scram_sha_512, login: "login", password: "password"},
-    # ssl: true,
-    telemetry: true,
-    allow_topic_auto_creation: false,
+  config :kafka_batcher, :default_client, 
+    collectors: [
+      KafkaBatcher.Collector1,
+      KafkaBatcher.Collector2,
+      KafkaBatcher.Collector3,
+      KafkaBatcher.Collector4,
+      KafkaBatcher.Collector5
+    ],
+    kafka: [
+      client_name: :default_client,
+      endpoints: "localhost:9092",
+      # in case you use SASL
+      # sasl: %{mechanism: :scram_sha_512, login: "login", password: "password"},
+      # ssl: true,
+      telemetry: true,
+      allow_topic_auto_creation: false
+    ],
     kafka_topic_aliases: %{
       "real_topic_name1" => "incoming-events",
       "real_topic_name2" => "special-topic"
-    }
+    },
+    kafka_metric_opts: []
   
   # In case you use KafkaEx, you need to disable default worker to avoid crashes
   config :kafka_ex, :disable_default_worker, true
@@ -88,6 +92,7 @@ Available parameters:
 * `:ssl` - optional parameter. Ssl should be type boolean(). By default `:ssl` is `false`.
 * `:min_delay` - optional parameter. Set minimal delay before send events. This parameter allows to increase max throughput in case when you get more messages (in term of count per second) than you expected when set `batch_size` parameter.
 * `:max_batch_bytesize` -  optional parameter. Allows to set a limit on the maximum batch size. By default it is 1_000_000 bytes.
+* `:client_name` - client name that is used to start a producer. Included in metrics namespace. Defaults to `:kafka_producer_client`.
 
 **Important:** The size of one message should not exceed `max_batch_bytesize` setting. If you need to work with large messages you must increase `max_batch_bytesize` value and value of Kafka topic setting `max.message.bytes` as well.
 

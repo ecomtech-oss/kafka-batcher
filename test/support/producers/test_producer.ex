@@ -27,24 +27,24 @@ defmodule KafkaBatcher.Producers.TestProducer do
   }
 
   @impl true
-  def start_client do
-    process_callback(%{action: :start_client}, {:ok, self()})
+  def start_client(config) do
+    process_callback(%{action: :start_client, parameters: config}, {:ok, self()})
   end
 
   @impl true
-  def start_producer(topic_name, config) do
-    process_callback(%{action: :start_producer, parameters: {topic_name, config}}, :ok)
+  def start_producer(config, topic_name) do
+    process_callback(%{action: :start_producer, parameters: {config, topic_name}}, :ok)
   end
 
   @impl true
-  def get_partitions_count(topic_name) do
+  def get_partitions_count(config, topic_name) do
     response = {:ok, @partition_counts[topic_name]}
-    process_callback(%{action: :get_partitions_count, parameters: topic_name}, response)
+    process_callback(%{action: :get_partitions_count, parameters: {config, topic_name}}, response)
   end
 
   @impl true
-  def do_produce(messages, topic, partition, config) do
-    process_callback(%{action: :do_produce, parameters: {messages, topic, partition, config}}, :ok)
+  def do_produce(config, messages, topic, partition) do
+    process_callback(%{action: :do_produce, parameters: {config, messages, topic, partition}}, :ok)
   end
 
   def topic_name(idx) when idx >= 1 and idx <= 8, do: "topic#{idx}"
