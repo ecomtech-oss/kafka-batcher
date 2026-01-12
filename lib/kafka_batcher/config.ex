@@ -58,9 +58,9 @@ defmodule KafkaBatcher.Config do
       opts |> Keyword.get(:kafka, []) |> Producers.Config.build!()
 
     data_stream_specs =
-      for collector <- Keyword.fetch!(opts, :collectors) do
+      for collector_mod <- Keyword.fetch!(opts, :collectors) do
         producer_config
-        |> build_data_stream_spec!(collector, opts)
+        |> build_data_stream_spec!(collector_mod, opts)
         |> validate_data_stream_spec!()
       end
 
@@ -72,12 +72,12 @@ defmodule KafkaBatcher.Config do
     }
   end
 
-  defp build_data_stream_spec!(producer_config, collector, opts) do
+  defp build_data_stream_spec!(producer_config, collector_mod, opts) do
     opts =
       opts
-      |> Keyword.merge(get_compile_opts!(collector))
-      |> Keyword.merge(Keyword.get(opts, collector, []))
-      |> Keyword.put(:collector, collector)
+      |> Keyword.merge(get_compile_opts!(collector_mod))
+      |> Keyword.merge(Keyword.get(opts, collector_mod, []))
+      |> Keyword.put(:collector_mod, collector_mod)
 
     collector_config = Collector.Config.build!(opts)
     accumulator_config = Accumulator.Config.build!(opts)

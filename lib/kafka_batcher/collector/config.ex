@@ -12,19 +12,19 @@ defmodule KafkaBatcher.Collector.Config do
              pos_integer())
 
   @type t :: %__MODULE__{
-          collector: module(),
+          collector_mod: module(),
           topic_name: String.t(),
           partition_fn: partition_fn() | nil,
           collect_by_partition: boolean()
         }
 
-  @enforce_keys [:collector, :topic_name]
+  @enforce_keys [:collector_mod, :topic_name]
   defstruct @enforce_keys ++ [:partition_fn, collect_by_partition: false]
 
   @spec to_kwlist(t()) :: Keyword.t()
   def to_kwlist(%__MODULE__{} = config) do
     [
-      collector: config.collector,
+      collector_mod: config.collector_mod,
       topic_name: config.topic_name,
       partition_fn: config.partition_fn,
       collect_by_partition: config.collect_by_partition
@@ -35,7 +35,7 @@ defmodule KafkaBatcher.Collector.Config do
   def build!(opts) do
     opts
     |> Keyword.take([
-      :collector,
+      :collector_mod,
       :topic_name,
       :partition_fn,
       :collect_by_partition

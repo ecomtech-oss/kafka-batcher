@@ -97,7 +97,8 @@ defmodule KafkaBatcher.Accumulator do
         {:noreply, new_state}
 
       {:error, _reason, new_state} ->
-        DataStreamSpec.get_collector(state.data_stream_spec).set_lock()
+        collector_mod = DataStreamSpec.get_collector_mod(state.data_stream_spec)
+        collector_mod.set_lock()
         {:noreply, new_state}
     end
   end

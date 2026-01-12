@@ -7,7 +7,7 @@ defmodule KafkaBatcher.DataStreamSpec.Validator do
   def validate(%DataStreamSpec{} = data_stream_spec) do
     %DataStreamSpec{
       collector_config: %Collector.Config{
-        collector: collector,
+        collector_mod: collector_mod,
         partition_fn: partition_fn,
         collect_by_partition: collect_by_partition
       },
@@ -18,10 +18,10 @@ defmodule KafkaBatcher.DataStreamSpec.Validator do
 
     cond do
       collect_by_partition and is_nil(partition_fn) ->
-        {:error, "collector #{inspect(collector)}. Not found required key :partition_fn"}
+        {:error, "collector #{inspect(collector_mod)}. Not found required key :partition_fn"}
 
       not collect_by_partition and is_nil(partition_strategy) ->
-        {:error, "collector #{inspect(collector)}. Not found required key :partition_strategy"}
+        {:error, "collector #{inspect(collector_mod)}. Not found required key :partition_strategy"}
 
       :otherwise ->
         :ok

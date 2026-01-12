@@ -3,7 +3,7 @@ defmodule KafkaBatcher.Accumulator.Config do
   alias KafkaBatcher.Config.BadConfigError
 
   @type t :: %__MODULE__{
-          collector: module(),
+          collector_mod: module(),
           topic_name: String.t(),
           partition: pos_integer() | nil,
           batch_flusher: module(),
@@ -15,7 +15,7 @@ defmodule KafkaBatcher.Accumulator.Config do
           accumulator_mod: module()
         }
 
-  @enforce_keys [:collector, :topic_name]
+  @enforce_keys [:collector_mod, :topic_name]
   defstruct @enforce_keys ++
               [
                 :partition,
@@ -31,7 +31,7 @@ defmodule KafkaBatcher.Accumulator.Config do
   @spec to_kwlist(t()) :: Keyword.t()
   def to_kwlist(%__MODULE__{} = config) do
     [
-      collector: config.collector,
+      collector_mod: config.collector_mod,
       topic_name: config.topic_name,
       partition: config.partition,
       batch_flusher: config.batch_flusher,
@@ -48,7 +48,7 @@ defmodule KafkaBatcher.Accumulator.Config do
   def build!(opts) do
     opts
     |> Keyword.take([
-      :collector,
+      :collector_mod,
       :topic_name,
       :batch_flusher,
       :max_wait_time,

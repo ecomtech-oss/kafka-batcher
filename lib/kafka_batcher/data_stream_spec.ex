@@ -76,13 +76,13 @@ defmodule KafkaBatcher.DataStreamSpec do
     topic_name
   end
 
-  @spec get_collector(t()) :: module()
-  def get_collector(%__MODULE__{} = data_stream_spec) do
+  @spec get_collector_mod(t()) :: module()
+  def get_collector_mod(%__MODULE__{} = data_stream_spec) do
     %__MODULE__{
-      collector_config: %Collector.Config{collector: collector}
+      collector_config: %Collector.Config{collector_mod: collector_mod}
     } = data_stream_spec
 
-    collector
+    collector_mod
   end
 
   @spec collect_by_partition?(t()) :: boolean()

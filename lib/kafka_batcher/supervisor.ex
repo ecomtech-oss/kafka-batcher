@@ -51,11 +51,11 @@ defmodule KafkaBatcher.Supervisor do
     for %KafkaBatcher.DataStreamSpec{} = spec <- specs, reduce: [] do
       specs ->
         %KafkaBatcher.DataStreamSpec{
-          collector_config: %Collector.Config{collector: collector}
+          collector_config: %Collector.Config{collector_mod: collector_mod}
         } = spec
 
         [
-          collector.child_spec(spec),
+          collector_mod.child_spec(spec),
           AccumulatorsPoolSupervisor.child_spec(spec)
           | specs
         ]
