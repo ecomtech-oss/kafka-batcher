@@ -50,6 +50,8 @@ A library to increase the throughput of producing messages (coming one at a time
             KafkaBatcher.Collector4,
             KafkaBatcher.Collector5
           ]
+
+  config :kafka_batcher, :json_library, Jason
           
   config :kafka_batcher, :kafka,
     endpoints: "localhost:9092",

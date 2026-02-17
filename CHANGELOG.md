@@ -4,6 +4,8 @@ All notable changes to this image will be documented in this file.
 Please refer to https://keepachangelog.com/en/1.0.0/ for format.
 
 ## [Unreleased]
+### Changes
+- Add compile time json_library option
 
 ## [1.1.0] - 2025-08-12
 ### Changes
