@@ -9,7 +9,7 @@ A library to increase the throughput of producing messages (coming one at a time
   ```elixir
     def deps do
       [
-        {:kafka_batcher, "~> 1.0.0"},
+        {:kafka_batcher, "~> 1.1.0"},
         # and one of kafka libraries
         # {:kaffe, "~> 1.24"}
         # or

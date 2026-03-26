@@ -4,7 +4,10 @@ All notable changes to this image will be documented in this file.
 Please refer to https://keepachangelog.com/en/1.0.0/ for format.
 
 ## [Unreleased]
+
+## [1.1.1] - 2026-03-26
 ### Changes
+- Fix warnings for Elixir 1.19
 - Add compile time json_library option
 
 ## [1.1.0] - 2025-08-12
