@@ -109,7 +109,7 @@ defmodule KafkaBatcher.ConnectionManager do
   ## INTERNAL FUNCTIONS
   ##
 
-  defp connect(state) do
+  defp connect(%State{} = state) do
     case prepare_connection() do
       {:ok, pid} ->
         %State{state | client_started: true, client_pid: pid}

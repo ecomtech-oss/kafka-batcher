@@ -158,7 +158,7 @@ defmodule KafkaBatcher.Collector do
         end
       end
 
-      def handle_info(:set_lock, state) do
+      def handle_info(:set_lock, %State{} = state) do
         {:noreply, %State{state | locked?: true}}
       end
 
