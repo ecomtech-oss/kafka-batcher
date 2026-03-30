@@ -45,7 +45,7 @@ defmodule KafkaBatcher.Collector.Config do
     ArgumentError ->
       reraise(
         BadConfigError,
-        "Accumulator config failed: missing required opts: #{inspect(@enforce_keys)}",
+        "Collector config failed: missing required opts: #{inspect(@enforce_keys)}",
         __STACKTRACE__
       )
   end

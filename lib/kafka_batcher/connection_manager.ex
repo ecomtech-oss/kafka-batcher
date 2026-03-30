@@ -32,7 +32,7 @@ defmodule KafkaBatcher.ConnectionManager do
   def start_link(%KafkaBatcher.Config{} = config) do
     GenServer.start_link(
       __MODULE__,
-      [config],
+      config,
       name: reg_name(config.producer_config)
     )
   end

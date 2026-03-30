@@ -22,7 +22,7 @@ if Code.ensure_loaded?(KafkaEx) do
     end
 
     @impl true
-    def start_producer(_topic_name, _config) do
+    def start_producer(%Producers.Config{}, _topic_name) do
       :ok
     end
 

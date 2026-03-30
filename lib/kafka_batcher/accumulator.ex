@@ -161,11 +161,16 @@ defmodule KafkaBatcher.Accumulator do
   end
 
   defp save_messages_to_temp_storage(messages, state) do
+    %DataStreamSpec{
+      accumulator_config: %Accumulator.Config{} = accumulator_config,
+      opts: opts
+    } = state.data_stream_spec
+
     TempStorage.save_batch(%TempStorage.Batch{
       messages: messages,
-      topic: state.topic_name,
-      partition: state.partition,
-      producer_config: state.config
+      topic: accumulator_config.topic_name,
+      partition: accumulator_config.partition,
+      producer_config: opts
     })
   end
 
@@ -175,9 +180,14 @@ defmodule KafkaBatcher.Accumulator do
         {:ok, State.reset_state_after_produce(state)}
 
       {:error, reason} ->
+        %DataStreamSpec{
+          accumulator_config: %Accumulator.Config{} = accumulator_config
+        } = state.data_stream_spec
+
         @error_notifier.report(
           type: "KafkaBatcherProducerError",
-          message: "event#produce topic=#{state.topic_name} partition=#{state.partition} error=#{inspect(reason)}"
+          message:
+            "event#produce topic=#{accumulator_config.topic_name} partition=#{accumulator_config.partition} error=#{inspect(reason)}"
         )
 
         save_messages_to_temp_storage(pending_messages, state)
@@ -187,7 +197,16 @@ defmodule KafkaBatcher.Accumulator do
 
   @spec produce_list(messages :: [CollectorBehaviour.event()], state :: State.t()) :: :ok | {:error, any()}
   defp produce_list(messages, state) when is_list(messages) do
-    @producer.produce_list(state.config, messages, state.topic_name, state.partition)
+    %DataStreamSpec{
+      accumulator_config: %Accumulator.Config{} = accumulator_config
+    } = spec = state.data_stream_spec
+
+    @producer.produce_list(
+      spec.producer_config,
+      messages,
+      accumulator_config.topic_name,
+      accumulator_config.partition
+    )
   catch
     _, reason ->
       {:error, reason}
