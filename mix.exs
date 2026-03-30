@@ -60,13 +60,12 @@ defmodule KafkaBatcher.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:kaffe, "~> 1.22"},
+      {:kaffe, "~> 2.0"},
       {:kafka_ex, "~> 0.12", optional: true},
       {:jason, ">= 0.0.0"},
       {:prom_ex, ">= 0.0.0", optional: true},
       {:plug, "~> 1.0", optional: true},
       {:telemetry, "~> 1.0"},
-      {:brod, "~> 3.16", override: true, only: [:dev, :test]},
       # For tests and code quality
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},

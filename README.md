@@ -11,7 +11,7 @@ A library to increase the throughput of producing messages (coming one at a time
       [
         {:kafka_batcher, "~> 1.1.0"},
         # and one of kafka libraries
-        # {:kaffe, "~> 1.24"}
+        # {:kaffe, "~> 2.0"}
         # or
         # {:kafka_ex, "~> 0.12"}
       ]

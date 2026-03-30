@@ -4,6 +4,8 @@ All notable changes to this image will be documented in this file.
 Please refer to https://keepachangelog.com/en/1.0.0/ for format.
 
 ## [Unreleased]
+### Changes
+- Upgrade `kaffe` from 1.22 to 2.0
 
 ## [1.1.1] - 2026-03-26
 ### Changes
